@@ -1,0 +1,25 @@
+
+# =============================================================================
+# Hermes V1 — primary provider: OpenAI-compatible relay
+# Added Phase 5 (2026-09-29). The slug is arbitrary; it exists so the relay
+# credential is bound to the relay endpoint and can never be sent elsewhere.
+# transport: codex_responses corresponds to the relay's wire_api "responses".
+# Requires KLDAI_API_KEY in .env.
+# =============================================================================
+providers:
+  kldai:
+    base_url: "https://www.kldai.cc/v1"
+    key_env: "KLDAI_API_KEY"
+    transport: codex_responses
+
+# =============================================================================
+# Hermes V1 — fallback chain
+# Added Phase 5 (2026-09-29). Tried in order when the primary fails with
+# rate-limit, overload, or connection errors. The relay measures 1.1-9.0 s and
+# the operator reports periodic dropouts, hence an explicit secondary.
+# Requires DEEPSEEK_API_KEY in .env.
+# =============================================================================
+fallback_providers:
+  - provider: deepseek
+    model: deepseek-chat
+    key_env: DEEPSEEK_API_KEY

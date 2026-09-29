@@ -1,0 +1,393 @@
+{
+  "metaData": {
+    "title": "银杏叶的个人主页🎉",
+    "description": "欢迎来到Varick的奇妙世界！",
+    "keywords": "Varick,Varick,个人主页,个人网站",
+    "icon": "/favicon.ico"
+  },
+  "avatar": "/img/avatar-20260916.jpg",
+  "welcometitle": "Hi, I'm Varick",
+  "color": {
+    "themecolor": "#FFFFFF",
+    "welcometitlecolor": "#FFFFFF"
+  },
+  "brightness": 85,
+  "contentBackgroundBrightness": 100,
+  "projectCardBrightness": 100,
+  "projectCardOverlayStrength": 40,
+  "blur": 7,
+  "tags": [
+    "乐观开朗",
+    "风趣幽默",
+    "善解人意"
+  ],
+  "profileIntro": "你好，我是 Varick。这里记录我的技术探索、机器人项目、摄影作品与生活片段。希望把每一次好奇，都变成看得见的作品。",
+  "background": {
+    "pc": {
+      "type": "pic",
+      "datainfo": {
+        "title": "jgnIKMpd",
+        "preview": "https://s21.ax1x.com/2025/07/23/pVGldaQ.md.jpg",
+        "url": "https://s21.ax1x.com/2025/07/23/pVGldaQ.jpg"
+      }
+    },
+    "mobile": {
+      "type": "pic",
+      "datainfo": {
+        "title": "0001",
+        "preview": "/img/wallpaper/static-mobile/0001/image-pre.webp",
+        "url": "/img/wallpaper/static-mobile/0001/image.png"
+      }
+    }
+  },
+  "polarChart": {
+    "skills": [
+      "c++",
+      "JavaScript",
+      "Node",
+      "Java",
+      "Python",
+      "linux",
+      "Docker",
+      "MySQL"
+    ],
+    "skillPoints": [
+      85,
+      88,
+      90,
+      80,
+      78,
+      85,
+      65,
+      82
+    ]
+  },
+  "socialPlatformIcons": [
+    {
+      "icon": "mdi-github",
+      "link": "https://github.com/Faterliu"
+    },
+    {
+      "icon": "mdi-email",
+      "link": "mailto:2274272942@qq.com"
+    },
+    {
+      "icon": "mdi-qqchat",
+      "link": "https://im.qq.com/"
+    },
+    {
+      "icon": "mdi-wechat",
+      "link": "https://wx.qq.com/"
+    }
+  ],
+  "typeWriterStrings": [
+    "少年追光，一时间迷了方向。",
+    "春风摇曳，抽出柔嫩的新绿。",
+    "把过去写在纸上，铺成一首回忆的诗。",
+    "天上有星河，地上有星火。",
+    "似有春风转，无故相思起。",
+    "落叶铺满街边，白雪深藏冬夜。"
+  ],
+  "musicPlayer": {
+    "server": "netease",
+    "type": "playlist",
+    "id": "2028178887",
+    "randomFirstPlay": true,
+    "startIndex": 0
+  },
+  "wallpaper": {
+    "pic": [
+      {
+        "title": "mgqyySeh",
+        "preview": "https://s21.ax1x.com/2025/07/23/pVGl82t.md.jpg",
+        "url": "https://s21.ax1x.com/2025/07/23/pVGl82t.jpg"
+      },
+      {
+        "title": "书房夜晚",
+        "preview": "/img/wallpaper/static/书房夜晚/image-pre.webp",
+        "url": "/img/wallpaper/static/书房夜晚/image.png"
+      },
+      {
+        "title": "海洋女孩",
+        "preview": "/img/wallpaper/static/海洋女孩/image-pre.webp",
+        "url": "/img/wallpaper/static/海洋女孩/image.png"
+      },
+      {
+        "title": "安逸舒适",
+        "preview": "/img/wallpaper/static/安逸舒适/image-pre.webp",
+        "url": "/img/wallpaper/static/安逸舒适/image.png"
+      },
+      {
+        "title": "jswcMaMj",
+        "preview": "https://s21.ax1x.com/2025/07/23/pVGli59.md.jpg",
+        "url": "https://s21.ax1x.com/2025/07/23/pVGli59.jpg"
+      },
+      {
+        "title": "pgtTqoqq",
+        "preview": "https://s21.ax1x.com/2025/07/23/pVGlmDO.md.jpg",
+        "url": "https://s21.ax1x.com/2025/07/23/pVGlmDO.jpg"
+      },
+      {
+        "title": "cvKMKhue",
+        "preview": "https://s21.ax1x.com/2025/07/23/pVGlNqS.md.jpg",
+        "url": "https://s21.ax1x.com/2025/07/23/pVGlNqS.jpg"
+      },
+      {
+        "title": "XpxvQVoP",
+        "preview": "https://s21.ax1x.com/2025/07/23/pVGlfIJ.md.jpg",
+        "url": "https://s21.ax1x.com/2025/07/23/pVGlfIJ.jpg"
+      },
+      {
+        "title": "fVEEjEOA",
+        "preview": "https://s21.ax1x.com/2025/07/23/pVGlEgx.md.webp",
+        "url": "https://s21.ax1x.com/2025/07/23/pVGlEgx.webp"
+      },
+      {
+        "title": "jgnIKMpd",
+        "preview": "https://s21.ax1x.com/2025/07/23/pVGldaQ.md.jpg",
+        "url": "https://s21.ax1x.com/2025/07/23/pVGldaQ.jpg"
+      },
+      {
+        "title": "dSXZfZp",
+        "preview": "https://s21.ax1x.com/2025/07/23/pVGlaVg.md.jpg",
+        "url": "https://s21.ax1x.com/2025/07/23/pVGlaVg.jpg"
+      }
+    ],
+    "picMobile": [
+      {
+        "title": "DfNHPPcc",
+        "preview": "https://s21.ax1x.com/2025/07/23/pVG1uQ0.md.jpg",
+        "url": "https://s21.ax1x.com/2025/07/23/pVG1uQ0.jpg"
+      },
+      {
+        "title": "0001",
+        "preview": "/img/wallpaper/static-mobile/0001/image-pre.webp",
+        "url": "/img/wallpaper/static-mobile/0001/image.png"
+      },
+      {
+        "title": "0002",
+        "preview": "/img/wallpaper/static-mobile/0002/image-pre.webp",
+        "url": "/img/wallpaper/static-mobile/0002/image.png"
+      },
+      {
+        "title": "0003",
+        "preview": "/img/wallpaper/static-mobile/0003/image-pre.webp",
+        "url": "/img/wallpaper/static-mobile/0003/image.png"
+      },
+      {
+        "title": "0004",
+        "preview": "/img/wallpaper/static-mobile/0004/image-pre.webp",
+        "url": "/img/wallpaper/static-mobile/0004/image.png"
+      },
+      {
+        "title": "cZZwzhis",
+        "preview": "https://s21.ax1x.com/2025/07/23/pVG1Vij.md.jpg",
+        "url": "https://s21.ax1x.com/2025/07/23/pVG1Vij.jpg"
+      },
+      {
+        "title": "aANKZHPX",
+        "preview": "https://s21.ax1x.com/2025/07/23/pVGlIR1.md.jpg",
+        "url": "https://s21.ax1x.com/2025/07/23/pVGlIR1.jpg"
+      }
+    ],
+    "video": [
+      {
+        "title": "尼尔：机械纪元 团队",
+        "preview": "/img/wallpaper/dynamic/尼尔：机械纪元 团队/Nier-Automata-Team-pre.webm",
+        "url": "/img/wallpaper/dynamic/尼尔：机械纪元 团队/Nier-Automata-Team.webm"
+      },
+      {
+        "title": "向往航天的女孩",
+        "preview": "/img/wallpaper/dynamic/向往航天的女孩/Toy-Aeroplane-pre.webm",
+        "url": "/img/wallpaper/dynamic/向往航天的女孩/Toy-Aeroplane.webm"
+      },
+      {
+        "title": "世界很温柔《龙族》上杉绘梨衣",
+        "preview": "https://www.leleo.top/img/wallpaper/dynamic/%E4%B8%96%E7%95%8C%E5%BE%88%E6%B8%A9%E6%9F%94%E3%80%8A%E9%BE%99%E6%97%8F%E3%80%8B%E4%B8%8A%E6%9D%89%E7%BB%98%E6%A2%A8%E8%A1%A3/A2EF5E85-pre.webm",
+        "url": "https://www.leleo.top/img/wallpaper/dynamic/%E4%B8%96%E7%95%8C%E5%BE%88%E6%B8%A9%E6%9F%94%E3%80%8A%E9%BE%99%E6%97%8F%E3%80%8B%E4%B8%8A%E6%9D%89%E7%BB%98%E6%A2%A8%E8%A1%A3/A2EF5E85.webm"
+      }
+    ],
+    "videoMobile": [
+      {
+        "title": "幻觉镇-gaako_illust",
+        "preview": "/img/wallpaper/dynamic-mobile/幻觉镇-gaako_illust/Hallucination_town-pre.mp4",
+        "url": "/img/wallpaper/dynamic-mobile/幻觉镇-gaako_illust/Hallucination_town.mp4"
+      },
+      {
+        "title": "chuva",
+        "preview": "/img/wallpaper/dynamic-mobile/chuva/chuva-pre.mp4",
+        "url": "/img/wallpaper/dynamic-mobile/chuva/chuva.mp4"
+      },
+      {
+        "title": "Doodle-小猫女仆降临",
+        "preview": "/img/wallpaper/dynamic-mobile/Doodle-小猫女仆降临/d12-pre.mp4",
+        "url": "/img/wallpaper/dynamic-mobile/Doodle-小猫女仆降临/d12.mp4"
+      }
+    ]
+  },
+  "projectcards": [
+    {
+      "img": "/img/camera_2.jpg",
+      "title": "Photography",
+      "subtitle": "Photography collection",
+      "text": "that wonder",
+      "url": "",
+      "to": "/camera",
+      "brightness": 140
+    },
+    {
+      "img": "/img/camera_27.jpg",
+      "title": "Poetry",
+      "subtitle": "Poetry collection",
+      "url": "",
+      "text": "my poem",
+      "brightness": 140
+    },
+    {
+      "img": "/img/camera_26.jpg",
+      "title": "Desktop Pet",
+      "subtitle": "Interactive desktop companion",
+      "text": "If you see this line, I've managed to get your attention.",
+      "url": "https://github.com/Faterliu/desktop_pet",
+      "brightness": 100
+    },
+    {
+      "img": "/img/camera_25.jpg",
+      "title": "ROS Robot",
+      "subtitle": "ROS robot control project",
+      "text": "If you see this line, I've managed to get your attention.",
+      "url": "",
+      "brightness": 140
+    }
+  ],
+  "statement": [
+    "皖ICP备2026032389号-1",
+    "Copyright © 2026 Varick"
+  ],
+  "photography": {
+    "title": "我的摄影作品",
+    "subtitle": "Photography",
+    "photos": [
+      {
+        "title": "",
+        "preview": "/img/camera_1-pre.webp",
+        "url": "/img/camera_1.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_2-pre.webp",
+        "url": "/img/camera_2.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_3-pre.webp",
+        "url": "/img/camera_3.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_4-pre.webp",
+        "url": "/img/camera_4.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_5-pre.webp",
+        "url": "/img/camera_5.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_6-pre.webp",
+        "url": "/img/camera_6.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_7-pre.webp",
+        "url": "/img/camera_7.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_8-pre.webp",
+        "url": "/img/camera_8.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_9-pre.webp",
+        "url": "/img/camera_9.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_10-pre.webp",
+        "url": "/img/camera_10.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_11-pre.webp",
+        "url": "/img/camera_11.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_12-pre.webp",
+        "url": "/img/camera_12.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_13-pre.webp",
+        "url": "/img/camera_13.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_14-pre.webp",
+        "url": "/img/camera_14.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_15-pre.webp",
+        "url": "/img/camera_15.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_16-pre.webp",
+        "url": "/img/camera_16.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_17-pre.webp",
+        "url": "/img/camera_17.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_18-pre.webp",
+        "url": "/img/camera_18.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_19-pre.webp",
+        "url": "/img/camera_19.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_20-pre.webp",
+        "url": "/img/camera_20.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_21-pre.webp",
+        "url": "/img/camera_21.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_22-pre.webp",
+        "url": "/img/camera_22.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_23-pre.webp",
+        "url": "/img/camera_23.jpg"
+      },
+      {
+        "title": "",
+        "preview": "/img/camera_24-pre.webp",
+        "url": "/img/camera_24.jpg"
+      }
+    ]
+  }
+}

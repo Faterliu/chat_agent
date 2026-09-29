@@ -105,10 +105,12 @@ Assume:
 
 ```text
 CPU: 2 vCPU
-RAM: 2 GB
+RAM: 2 GB nominal (~1.6 GiB visible to the OS on the confirmed target host)
 Swap: 2 GB recommended
 OS: Ubuntu 20.04 / 22.04 / 24.04
 ```
+
+Careful: "2 GB" is the marketing size of the instance, not the RAM the kernel can use. Plan and alarm against the visible total, and see §21 for the calibrated runtime targets.
 
 The implementation must be optimized for low idle memory use.
 
@@ -551,16 +553,20 @@ Logs must rotate or otherwise remain bounded.
 
 ## 21. Resource Targets
 
-Desired runtime targets:
+Desired runtime targets, calibrated to the **measured** host rather than to a nominal "2 GB".
+
+The confirmed target host reports a physical total of approximately **1.6 GiB RAM** (2 vCPU, nominal 2 GB instance, ~1.6 GiB visible to the OS). A threshold written against a nominal 2 GB budget can therefore never fire on this host — the OOM killer would act first. The alarm line must stay comfortably below the visible total.
 
 ```text
-Idle: preferably < 800 MB RAM
-Normal chat: preferably < 1.2 GB RAM
-Short media bursts: preferably < 1.5 GB RAM
-Sustained > 1.7 GB RAM: investigate
+Idle: preferably < 600 MB used
+Normal chat: preferably < 900 MB used
+Short media bursts: preferably < 1.1 GB used
+Investigate above: ~1.3 GB used, or any sustained swap-in activity
 ```
 
 These are engineering targets, not guarantees.
+
+Re-derive these numbers if the deployment moves to a host with a different visible RAM total. The measured baseline lives in `DEPLOYMENT_NOTES.md`.
 
 If memory is high, first inspect:
 

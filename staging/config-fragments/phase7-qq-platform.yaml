@@ -1,0 +1,34 @@
+
+# =============================================================================
+# Hermes V1 — gateway platform settings (Phase 7, 2026-09-29)
+# QQ Bot, official QQ API v2. Credentials live in .env as QQ_APP_ID /
+# QQ_CLIENT_SECRET; the platform auto-enables when both are present.
+#
+# Policy mechanics, read from source rather than assumed:
+#   gateway/run.py:2242 maps Platform.QQBOT to (None, None, "QQ_ALLOW_ALL_USERS") —
+#     i.e. QQBOT has NO QQ_DM_POLICY / QQ_GROUP_POLICY env vars. The policy comes
+#     from extra.dm_policy / extra.group_policy.
+#   gateway/platforms/qqbot/adapter.py:151-153 defaults both to "pairing".
+#   Accepted values: open | allowlist | disabled | pairing.
+#
+# "allowlist" hard-rejects unknown senders. "pairing" would instead let strangers
+# request access and require manual approval, which does not satisfy TASK.md 7.2
+# (explicit allowlist during testing) or 7.4 (non-allowed users/groups rejected).
+# QQ_ALLOW_ALL_USERS=false in .env is kept purely as the startup guard that prevents
+# an "open" policy from taking effect without an explicit opt-in.
+#
+# The allowlist lives here, not in QQ_ALLOWED_USERS, so there is exactly one
+# authoritative source (the adapter reads extra.allow_from first).
+# =============================================================================
+platforms:
+  qqbot:
+    enabled: true
+    extra:
+      dm_policy: allowlist
+      allow_from:
+        - "A729C39060FB65742B0C808249E36326"
+      # No group is authorised yet. Adding the test group's ID here is the only
+      # change needed for TASK.md 7.4 (group @ mention) — the mechanism is already
+      # allowlist, so non-listed groups are rejected meanwhile.
+      group_policy: allowlist
+      group_allow_from: []

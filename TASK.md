@@ -815,14 +815,16 @@ htop
 ps aux --sort=-%mem | head -20
 ```
 
-Desired targets:
+Desired targets (calibrated to the deployed host's visible RAM — see the measured baseline in `DEPLOYMENT_NOTES.md`):
 
 ```text
-Idle: < 800 MB if practical
-Normal chat: < 1.2 GB if practical
-Short media bursts: < 1.5 GB if practical
-Sustained > 1.7 GB: investigate
+Idle: < 600 MB used if practical
+Normal chat: < 900 MB used if practical
+Short media bursts: < 1.1 GB used if practical
+Investigate above: ~1.3 GB used, or any sustained swap-in activity
 ```
+
+The confirmed host reports roughly 1.6 GiB of visible RAM, so a nominal "2 GB" budget is not usable as an alarm threshold on this machine. Re-derive the numbers if the deployment moves to a different host.
 
 Investigate if present:
 
@@ -1132,3 +1134,43 @@ hermes gateway --help
 ```
 
 Update this section if the installed Hermes version uses different commands.
+
+---
+
+# Unresolved Issues
+
+Recorded per `AGENTS.md` §24 clause 13. See `DEPLOYMENT_NOTES.md` for the full evidence.
+
+## UNRESOLVED-1 — QQ group replies are rejected as unauthorised proactive messages
+
+- **Symptom:** inbound group messages are ingested and the agent produces a reply, but QQ refuses delivery:
+  `HTTP 400 /v2/groups/<group_openid>/messages: 主动消息失败, 无权限`.
+- **Cause (verified in source, v0.21.5):** QQ requires passive replies to carry the inbound `msg_id`.
+  `gateway/platforms/qqbot/adapter.py:1414-1421` attaches it correctly *when given a `reply_to`*, but
+  `gateway/run_turn.py:3181-3187` computes `_progress_reply_to` only for
+  `FEISHU` / `MATTERMOST` / Buzz / relay routes — **`Platform.QQBOT` is absent, so `reply_to` is always
+  `None` for QQ.** DMs tolerate proactive messages; groups do not.
+- **No configuration-only fix exists.** `reply_to_mode` governs progress threading, not this computation.
+- **Impact:** TASK.md Phase 7.4 (group @ mention) and the group half of Phase 19 cannot pass.
+- **Resolution (operator-chosen): a narrow core patch was applied.** `gateway/platforms/qqbot/adapter.py`
+  `send()` now falls back to `self._last_msg_id.get(chat_id)` for **group chats only**, producing a
+  passive reply. Deliberately *not* the alternative of adding `Platform.QQBOT` to `run_turn.py`'s
+  `_progress_reply_to` list, because that would widen `reply_to` to every outbound message of a turn
+  and QQ caps passive replies per inbound message. Original preserved as
+  `adapter.py.orig-qqbot-passive`; applied by `staging/apply-qqbot-passive-patch.py`.
+- **This is a deviation from AGENTS.md §24 clauses 5-6** (prefer config/extension points over invasive
+  core edits). It is documented rather than silent, and it is **not durable**: any reinstall,
+  distribution change, or `hermes update` discards the patch and silently reintroduces the HTTP 400.
+- **Status: RESOLVED and live-verified (2026-09-29).** The group reply was delivered at 17:33:09 —
+  `response ready: platform=qqbot chat=56B2E66590BD2ED9A098C5D8B0123D68 … time=1.9s` with no subsequent
+  `send retry` or `Send failed`. Phase 7.4 (group @ mention) therefore passes and Phase 7 is complete.
+  Companion change: `display.platforms.qqbot.tool_progress = off`, keeping a QQ turn to one outbound
+  message. **The durability caveat above still stands** — the patch is not part of any distribution, so
+  re-verify group replies after any reinstall or distribution change.
+
+## UNRESOLVED-2 — the relay provider is unreliable
+
+- Largely mitigated by promoting `deepseek-flash` to primary and demoting the relay to a fallback
+  (`DEPLOYMENT_NOTES.md` §11.12). Retained here because the relay measured 25–45 s per trivial prompt with
+  intermittent timeouts and a misfiring anti-abuse `400`, so it should not be promoted back without
+  re-measurement.
