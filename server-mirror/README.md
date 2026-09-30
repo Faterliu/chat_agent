@@ -1,65 +1,24 @@
-# server-mirror/
+# 服务器文件镜像
 
-A local, reviewable copy of the Hermes deployment artefacts that live on the target
-server (`hermes@8.148.73.94`). It exists so the server-side configuration can be
-diffed, reviewed, and restored without logging in.
+本目录保存 `hermes@8.148.73.94` 的部署文件副本，便于查看差异与准备恢复。副本可能滞后，实际状态以服务器核验和 [部署记录](../DEPLOYMENT_NOTES.md) 为准。
 
-## Connecting as `hermes`, not `admin`
+## 内容与边界
 
-The sync connects as the **`hermes` service account**, because `HERMES_HOME`
-(`/var/lib/hermes/.hermes`) is mode `700` and owned by `hermes`. Connecting as `admin`
-cannot even traverse into it, and the tool would silently report every Hermes artefact
-as `[absent]` — which is exactly what happened on its first real run.
+远程绝对路径按原目录结构保存，例如 `config.yaml` 位于 `var/lib/hermes/.hermes/config.yaml`。
 
-The `/etc` and `/usr/local` paths in the manifest are world-readable (`644`/`755`), so
-`hermes` can read them without `sudo`.
+镜像清单包含配置、`SOUL.md`、无凭据的 `.env.example`、swap／swappiness 配置，以及未来可能部署的 systemd、清理和日志轮转文件。缺失文件表示尚未部署，不代表同步失败。`SOUL.md` 是运行提示词副本，不作为维护文档翻译或改写。
 
-## What is mirrored
+不复制 `.env`、会话、日志、记忆、媒体缓存和上游运行环境。当前 `.env` 已含真实凭据，严禁同步。`config.yaml` 若被直接写入密钥也不安全；同步工具不会自动脱敏，复制前须检查，发现秘密时不得保留或提交。
 
-| Remote path | Why |
-| --- | --- |
-| `/var/lib/hermes/.hermes/config.yaml` | the real Hermes configuration (121 KB in v0.21.5) |
-| `/var/lib/hermes/.hermes/SOUL.md` | agent personality |
-| `/var/lib/hermes/.hermes/hermes-agent/.env.example` | credential-free env template |
-| `/etc/sysctl.conf` | we changed `vm.swappiness` here |
-| `/etc/fstab` | we added the `/swapfile` entry here |
-| `/etc/systemd/system/hermes*.service`, `hermes-media-cleanup.*` | once Phase 16 writes them |
-| `/etc/tmpfiles.d/hermes.conf`, `/etc/logrotate.d/hermes` | once Phases 14/15 write them |
-| `/usr/local/bin/hermes-media-cleanup.sh` | once Phase 14 writes it |
+## 使用
 
-The local layout mirrors the remote absolute path, so
-`/var/lib/hermes/.hermes/config.yaml` lands at
-`server-mirror/var/lib/hermes/.hermes/config.yaml`.
-
-## What is deliberately NOT mirrored
-
-- `/var/lib/hermes/.hermes/.env` — the credential file. Harmless today (`hermes setup`
-  was skipped, so it holds only timeout/debug switches), but it is where API keys will
-  land. Mirrored is the template, not the file.
-- `{sessions,logs,memories,image_cache,audio_cache,cache}/` — runtime state and user
-  conversation content.
-- `node/`, `hermes-agent/`, `bin/uv` — ~2 GB of upstream code and runtimes, fully
-  reproducible from the pinned commit plus the checksummed installer.
-
-A mirrored file that turns out to contain a secret is a finding to fix **on the
-server**, not a file to keep. See AGENTS.md §6 and §11.
-
-## How to use it
+在仓库根目录运行：
 
 ```bash
-# from the repository root
-python tools/sync_from_server.py              # pull / update the mirror
-python tools/sync_from_server.py --dry-run    # show what would be pulled
-python tools/sync_from_server.py --prune      # also drop local files gone from the server
+python tools/sync_from_server.py --dry-run
+python tools/sync_from_server.py
 ```
 
-The sync is strictly read-only against the server: it never writes or deletes anything
-on the remote host, so it cannot leave residue there.
+工具默认以 `hermes` 账号连接，因为数据目录权限为 700；可用 `--host` 或 `HERMES_TARGET_HOST` 覆盖目标。服务器侧仅执行读取操作，`--prune` 会删除服务器已不存在的本地镜像文件，使用前检查本地改动。
 
-`--host` or the `HERMES_TARGET_HOST` environment variable overrides the default target.
-
-## Status
-
-Verified working against the live install: 5 artefacts mirrored, 0 failures. The
-remaining manifest entries are `[absent]` because the systemd units, cleanup timer, and
-log rotation config do not exist yet — they arrive in Phases 14–16.
+历史核验曾成功同步 5 个文件；本次仅更新说明，未刷新镜像。2026-09-30 服务器仍无 Hermes systemd 服务，媒体清理和日志治理尚待验收。同步工具不会生成或覆盖本说明。

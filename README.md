@@ -1,37 +1,32 @@
-# chat_agent
+# chat_agent：QQ／微信聊天机器人
 
-#### 介绍
-搭载在远程服务器上的聊天机器人，接入QQ和微信
+基于 Hermes Agent 的轻量聊天项目，运行在共享 Ubuntu 服务器上。模型推理使用远程 API，会话保存在 SQLite，长期记忆按用户隔离。本仓库保存部署文档、补丁和辅助脚本；Hermes 主程序位于服务器。
 
-#### 软件架构
-软件架构说明
+## 当前状态
 
+2026-09-30 核验：Hermes 固定为 v0.21.5，QQ 私聊及群 @ 文本回复已实测。主模型为 `deepseek-flash`，备用为 `kldai/gpt-6-sol`。用户记忆与历史检索隔离补丁已部署。
 
-#### 安装教程
+微信尚未接入；STT 已关闭；Vision、TTS、媒体清理、限流和 systemd 自动恢复尚未完成验收。当前运行单个手动网关，不能视为完整的 24×7 多模态部署。
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+## 数据边界
 
-#### 使用说明
+用户以 `(平台, user_id)` 区分，QQ 与微信不合并身份。
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+| 场景 | 长期记忆 | 历史检索 |
+| --- | --- | --- |
+| 私聊 | 该用户的私聊记忆 | 同平台该用户的私聊和群聊记录 |
+| 群聊 | 该用户所有群共用的群记忆 | 该用户在当前群的记录 |
 
-#### 参与贡献
+私聊可按用户要求只读获取群记忆；群聊不能读取私聊记忆。身份无法核实时拒绝记忆和检索访问。
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+## 文档与目录
 
+- [AGENTS.md](AGENTS.md)：开发约束和安全边界。
+- [TASK.md](TASK.md)：已完成事项与待办验收。
+- [DEPLOYMENT_NOTES.md](DEPLOYMENT_NOTES.md)：部署路径、核验结果、维护与回滚。
+- `patches/`：固定版本的用户隔离补丁。
+- `staging/`：已使用的配置、人格和部署辅助脚本，运行前须核对适用状态。
+- `installer/`：固定版本安装器；`tools/`：服务器镜像工具。
+- [server-mirror/](server-mirror/README.md)：可能滞后的部署文件副本；`backups/`：旧项目备份。
 
-#### 特技
-
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+QQ 当前仅向白名单开放。不得直接运行 `hermes update`，不得重复执行首次部署脚本；维护前阅读部署记录并保留现有 QQ 群回复补丁。
