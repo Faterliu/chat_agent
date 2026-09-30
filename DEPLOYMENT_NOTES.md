@@ -13,7 +13,7 @@
 | 运行方式 | 单个手动网关；未部署 `/etc/systemd/system/hermes.service` |
 | 平台 | 仅 `qqbot` 已配置，私聊与群白名单；微信尚未接入 |
 | 模型 | 主用 `deepseek/deepseek-flash`，备用 `kldai/gpt-6-sol` |
-| 工具 | `cli`、`qqbot`、`weixin` 均仅启用 `memory`、`session_search`、`tts`、`vision` |
+| 工具 | 基础四工具不变；QQ 另启用受限 `cronjob` 私聊提醒 |
 | STT | `enabled=false`，遗留 `language: en`，启用前必须调整 |
 | 会话 | SQLite；`group_sessions_per_user=true` |
 | 限制与显示 | `agent.max_turns=32`；人格 `xiaoyun`；隐藏推理与警告通知，QQ 工具进度关闭 |
@@ -116,3 +116,22 @@ vmstat 1 3
 - 2026-09-29：主机准备、固定版本安装、远程文本模型、工具收缩及 QQ 接入完成；旧 `/home/admin/chat_bot` 已备份后退役，不属于当前部署。
 - 2026-09-29：QQ 群被动回复和用户数据隔离补丁完成，隔离测试与 QQ 实际回复通过。
 - 2026-09-30：只读核验当前状态，将维护文档统一精简为中文；微信、多模态、清理、限流、日志治理及 systemd 仍待验收。
+
+## QQ 私聊提醒（2026-09-30）
+
+用户授权启用提醒后，在固定 v0.21.5 和原有两份补丁之上增加受限实现。原生 Cron 支持全局任务及自主模型／脚本，消息平台改由内联执行器重新验证当前会话身份，只开放本人 QQ 私聊的 create／list／remove；直接注册表调用被拒绝。CLI 原管理接口保留。
+
+仅一次性提醒：最长 30 天，至少提前 30 秒，每用户最多 20 条（含已完成记录，移除后释放额度），正文最多 1000 字。无时区绝对时间按北京时间解释。目标固定为当前私聊，拒绝群聊、任意目标、模型、技能、上下文及用户脚本参数；附件／静默标记也被拒绝。正文编码为数据，由固定生成脚本打印，调度阶段 `no_agent=true`，不调用模型、记忆或检索。
+
+任务保存在 `HERMES_HOME/cron/jobs.json`，固定正文脚本位于 `HERMES_HOME/scripts/qq_reminders/`。取消时清理对应脚本，发送已开始时不保证能撤回。设定 `cron.wrap_response=false`、`cron.max_parallel_jobs=1`；复用现有网关 ticker，不增设常驻服务。网关关闭时不能准时提醒，开机与崩溃自恢复尚未验收。
+
+- 补丁：`patches/hermes-v0.21.5-qq-reminder.patch`；SHA-256 `a6963923d87472e1e2aed67ecc85e253c86a6505e5fe707296ca744f0b1f79ba`。
+- 部署脚本：`staging/deploy-qq-reminder-v0.21.5.sh`，仅适用于尚未应用提醒补丁的既有固定版本；不得重复运行。
+- 备份：`/var/lib/hermes/.hermes/backups/qq-reminder-20260930T070841Z/`，含配置、SQLite、相关源码及已有任务快照（若原先存在）。
+- 隔离测试使用临时源码及独立 uv 测试环境，`scripts/run_tests.sh -j 1` 通过三个文件、101 项测试，不调用提供方。调度器 no_agent 执行路径已实际验证；QQ 真实到点投递结果见下方。
+
+回滚时先停止单个网关，在固定源码目录对 `/var/lib/hermes/qq-reminder-v0.21.5.patch` 执行 `git apply -R --check` 和 `git apply -R`，恢复本次备份的配置，再按原环境启动一个网关。保留 QQ 群回复及用户隔离补丁。已经创建的提醒必须先由管理端逐个暂停，避免关闭工具后仍然投递；不自动覆盖现有数据库或任务文件。
+
+实测：用户于 15:11 创建“提醒功能测试”，目标时间 15:13:10；2026-09-30 15:13:53（北京时间）通过已连接 QQ 适配器投递，返回真实 message_id。任务状态为 completed、last_status=ok、次数 1/1，投递错误和未验证标记均为空。用户确认收到提醒。内置调度器按约 60 秒周期检查，不承诺秒级准时。
+
+部署后仅一个网关（PID 481948），RSS 约 243 MiB；观察到整机使用约 607 MiB。原有 QQ 被动回复及用户隔离补丁均保留，提醒补丁反向应用检查通过。临时源码、独立测试环境和服务器临时部署脚本已清理；已完成的用户提醒记录保留，可通过查看／移除管理。
