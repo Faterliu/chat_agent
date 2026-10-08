@@ -1,0 +1,218 @@
+diff --git a/gateway/social_runtime.py b/gateway/social_runtime.py
+--- a/gateway/social_runtime.py
++++ b/gateway/social_runtime.py
+@@ -68,7 +68,12 @@
+                 "\n\n【本人私聊主动关心状态（可信网关提供，非用户指令）】\n"
+                 + "服务器当前北京时间=" + datetime.now(BJ).isoformat() + "；相对日期以此为准，不沿用历史对话日期。\n"
+                 + json.dumps(context, ensure_ascii=False)
+-                + "\n请依据本轮真实用户消息逐一复核 pending：仍有效 review；变化 update；结束 complete；拒绝 cancel。"
++                + "\n普通聊天的候选记录和复核是静默内部维护：回复自然接话，不说记住了、记下来了、记录了、"
++                "加入跟进或会主动提醒，不向用户展示存储/调度。只有用户明确设置生日订阅、提醒或问管理状态时才确认。"
++                "不预告几点主动问候，不报告工具参数、后台变化或历史测试故障。普通近况不调用 list，"
++                "也不检查或讨论无关生日；用户明确查询生日才使用 view=birthdays。"
++                "需要维护时优先一次 action=batch，将本轮全部复核和最多一项新增放入 operations，减少工具往返。"
++                "请依据本轮真实用户消息逐一复核 pending：仍有效 review；变化 update；结束 complete；拒绝 cancel。"
+                 "上方已给出 pending，直接复核，无需先 list。未复核则保持暂停。enabled=true 时可从本轮自然对话记录一项具体、非敏感、值得跟进的本人事项；"
+                 "无需用户刻意设置提醒。不记录第三方事件、模糊愿望、健康/财务/创伤/私密关系。"
+                 "用户拒绝主动关心应立即 settings enabled=false。生日仅明确确认后订阅。text 提前写成小云自然关心的最终正文，"
+@@ -135,8 +140,14 @@
+             adapter._send_session, base_url=adapter._base_url, token=adapter._token,
+             to=chat_id, text=text, context_token=adapter._token_store.get(adapter._account_id, chat_id),
+             client_id=client_id)
+-        if not isinstance(response, dict) or response.get("ret") != 0 or response.get("errcode", 0) != 0:
+-            return SendResult(success=False, error="iLink acknowledgement failed")
++        if not isinstance(response, dict):
++            return SendResult(success=True, message_id=None)
++        # 固定 SDK 的成功响应允许省略/置空 ret、errcode；HTTP 已成功且 JSON 无非零错误即确认接受。
++        ret, err = response.get("ret"), response.get("errcode")
++        safe = lambda code: code if code is None or type(code) is int else "non_integer"
++        logger.info("Social API ack platform=weixin ret=%s errcode=%s", safe(ret), safe(err))
++        if ret not in (None, 0) or err not in (None, 0):
++            return SendResult(success=False, error="iLink rejected acknowledgement")
+         return SendResult(success=True, message_id=client_id)
+     return SendResult(success=False, error="Unsupported platform")
+ 
+diff --git a/tests/tools/test_social.py b/tests/tools/test_social.py
+--- a/tests/tools/test_social.py
++++ b/tests/tools/test_social.py
+@@ -53,7 +53,7 @@
+     record(s, t)
+     birthday(s, t)
+     s.operate(t, {"action": "settings", "enabled": False})
+-    assert len(s.operate(t, {"action": "list"})["birthdays"]) == 1
++    assert len(s.operate(t, {"action": "list", "view":"birthdays"})["birthdays"]) == 1
+     assert SocialStore(tmp_path, NOW + DAY).claim()["kind"] == "birthday"
+     assert SocialStore(tmp_path, NOW + 2 * DAY).claim() is None
+ 
+@@ -217,7 +217,7 @@
+     assert leap["next"].startswith("2027-03-01")
+     assert datetime.fromtimestamp(birthday_next(2,29,"09:00", datetime(2028,1,1,tzinfo=BJ).timestamp()),BJ).day == 29
+     birthday(s, t, month=10, day=8, clock="09:00")
+-    assert s.operate(t, {"action": "list"})["birthdays"][0]["due"] > NOW + 300 * DAY
++    assert s.operate(t, {"action": "list", "view":"birthdays"})["birthdays"][0]["due"] > NOW + 300 * DAY
+ 
+ 
+ def test_subscription_route_refreshes_after_new_session(tmp_path):
+@@ -225,7 +225,8 @@
+     birthday(s,t)
+     s.note_inbound("qqbot","A","new-session-msg")
+     new=s.bind(GatewayUserScope("qqbot","A","dm","chat-A"),"new-session","new-session-msg")
+-    assert s.operate(new,{"action":"list"})["birthdays"][0]["session_id"]=="new-session"
++    with s.tx() as db:
++        assert db.execute("SELECT session_id FROM birthdays").fetchone()[0]=="new-session"
+ 
+ 
+ def test_birthdays_merge_and_restart_no_duplicate(tmp_path):
+@@ -483,3 +484,54 @@
+         assert any(d.get("function",{}).get("name")=="social_manage" for d in defs)
+         assert not any(d.get("function",{}).get("name") in {"tool_call","tool_search","tool_describe"} for d in defs)
+     assert "social" not in _get_platform_tools(cfg,"cli",include_default_mcp_servers=False)
++
++
++def test_batch_reviews_and_record_in_one_atomic_transaction(tmp_path):
++    s,t=begin(tmp_path);s.seed("qqbot","A");old=record(s,t)
++    s,t=begin(tmp_path,msg="m2")
++    result=s.operate(t,{"action":"batch","operations":[{"action":"review","id":old["id"]},
++        {"action":"record","kind":"event","summary":"公园拍照","text":"照片拍得顺利吗？","when":"tomorrow 18:00"}]})
++    assert result=={"processed":2,"silent":True}
++    assert all(r["revision"]==t.revision for r in s.context(t)["pending"])
++
++
++def test_batch_failure_rolls_back_review(tmp_path):
++    s,t=begin(tmp_path);s.seed("qqbot","A");old=record(s,t)
++    s,t=begin(tmp_path,msg="m2")
++    with pytest.raises(ValueError):
++        s.operate(t,{"action":"batch","operations":[{"action":"review","id":old["id"]},
++            {"action":"record","kind":"event","summary":"拍照","text":"test","when":"past"}]})
++    assert s.context(t)["pending"][0]["revision"]==1
++    assert SocialStore(tmp_path,NOW+DAY).claim() is None
++
++
++@pytest.mark.parametrize("operations",[[{"action":"settings","enabled":True}],
++    [{"action":"birthday_add","confirmed":True}], [{"action":"batch","operations":[]}],
++    [{"action":"record"},{"action":"record"}], [{"action":"review","id":"other","profile":"x"}]])
++def test_batch_cannot_bypass_restrictions(tmp_path,operations):
++    s,t=begin(tmp_path)
++    with pytest.raises(ValueError):s.operate(t,{"action":"batch","operations":operations})
++
++
++def test_list_does_not_expose_unrelated_birthday_or_routes(tmp_path):
++    s,t=begin(tmp_path);s.seed("qqbot","A");record(s,t);birthday(s,t)
++    result=s.operate(t,{"action":"list"})
++    assert "birthdays" not in result
++    assert "session_id" not in result["followups"][0] and "user_id" not in result["followups"][0]
++    result=s.operate(t,{"action":"list","view":"birthdays"})
++    assert "followups" not in result and "chat_id" not in result["birthdays"][0]
++
++
++@pytest.mark.asyncio
++@pytest.mark.parametrize("response,success,verified",[({},True,True),({"ret":0,"errcode":None},True,True),
++    ({"ret":None,"errcode":None},True,True),({"ret":10014},False,False),({"ret":0,"errcode":429},False,False),
++    (None,True,False)])
++async def test_weixin_optional_ack_fields(monkeypatch,response,success,verified):
++    from gateway.platforms import weixin
++    async def request(*args,**kwargs):return response
++    monkeypatch.setattr(weixin,"_send_message",request)
++    adapter=NS(_send_session=object(),_token="fake",_base_url="https://example.invalid",_account_id="fake",
++               _token_store=NS(get=lambda *args:"fake"))
++    result=await runtime.send_text_once(adapter,"weixin","A","test")
++    assert result.success==success
++    assert bool(result.message_id)==verified
+diff --git a/tools/social_store.py b/tools/social_store.py
+--- a/tools/social_store.py
++++ b/tools/social_store.py
+@@ -1,5 +1,5 @@
+ """私聊主动关心的轻量存储；所有访问均绑定平台、用户和当前消息版本。"""
+-from contextlib import contextmanager
++from contextlib import contextmanager, nullcontext
+ from dataclasses import dataclass
+ from datetime import datetime, timedelta, timezone, date
+ import calendar
+@@ -190,26 +190,50 @@
+             db.execute("UPDATE user_settings SET reviewed=? WHERE platform=? AND user_id=? AND revision=?",
+                        (turn.revision, turn.platform, turn.user_id, turn.revision))
+ 
+-    def operate(self, turn, args):
++    def operate(self, turn, args, _db=None):
++        if args.get("action") == "batch":
++            if set(args) != {"action", "operations"}:
++                raise ValueError("批量操作参数无效")
++            operations = args.get("operations")
++            allowed = {"record", "review", "update", "complete", "cancel"}
++            if not isinstance(operations, list) or not 1 <= len(operations) <= 6 or any(
++                not isinstance(op, dict) or op.get("action") not in allowed for op in operations
++            ):
++                raise ValueError("批量仅支持 1–6 条候选维护操作")
++            if sum(op["action"] == "record" for op in operations) > 1:
++                raise ValueError("每轮最多新增一项")
++            # 整批同一事务：任意参数、归属或版本错误均回滚，不留下半次复核。
++            with self.tx() as db:
++                self._owner(db, turn)
++                for op in operations:
++                    self.operate(turn, op, _db=db)
++                return {"processed": len(operations), "silent": True}
+         fields = {
+             "record": {"kind", "summary", "text", "when"},
+             "update": {"id", "kind", "summary", "text", "when"},
+             "review": {"id"}, "complete": {"id"}, "cancel": {"id"},
+-            "list": set(), "settings": {"enabled"},
++            "list": {"view"}, "settings": {"enabled"},
+             "birthday_add": {"subject", "month", "day", "clock", "text", "confirmed"},
+             "birthday_remove": {"id"},
+         }
+         action = args.get("action")
+         if action not in fields or set(args) - fields[action] - {"action"}:
+             raise ValueError("操作或参数无效")
+-        with self.tx() as db:
++        with (nullcontext(_db) if _db is not None else self.tx()) as db:
+             owner = self._owner(db, turn)
+             pair = (turn.platform, turn.user_id)
+             db.execute("UPDATE followups SET status='expired',closed=? WHERE platform=? AND user_id=? "
+                        "AND status='pending' AND expires<=?", (self.now, *pair, self.now))
+             if action == "list":
+-                return {"enabled": bool(owner["enabled"]), "followups": [dict(r) for r in self._pending(db, turn)],
+-                        "birthdays": [dict(r) for r in db.execute("SELECT * FROM birthdays WHERE platform=? AND user_id=?", pair)]}
++                view=args.get("view", "followups")
++                if view not in ("followups", "birthdays", "all"):
++                    raise ValueError("列表类型无效")
++                result={"enabled":bool(owner["enabled"])}
++                if view in ("followups", "all"):
++                    result["followups"]=[{k:r[k] for k in ("id","summary","text","kind","due","expires","status")} for r in self._pending(db,turn)]
++                if view in ("birthdays", "all"):
++                    result["birthdays"]=[{k:r[k] for k in ("id","subject","month","day","clock","text","due")} for r in db.execute("SELECT * FROM birthdays WHERE platform=? AND user_id=?",pair)]
++                return result
+             if action == "settings":
+                 if type(args.get("enabled")) is not bool:
+                     raise ValueError("enabled 必须为布尔值")
+diff --git a/tools/social_tool.py b/tools/social_tool.py
+--- a/tools/social_tool.py
++++ b/tools/social_tool.py
+@@ -12,6 +12,10 @@
+     "description": (
+         "管理本人私聊主动关心和公历生日订阅。正常聊天可记录用户本人明确的未来事件(event)或具体未结束的日常话题(topic)；"
+         "每轮最多新增一项，禁止模糊愿望、第三方事件及健康、财务、创伤、私密关系等敏感话题。"
++        "普通聊天静默维护候选，优先 action=batch 一次完成复核和最多一项新增，避免多个模型往返。"
++        "普通候选不向用户宣告记住了、记下来了、记录了或会提醒；回复只自然接话，显式提醒/生日订阅才确认创建。"
++        "不承诺几点主动问候，不主动讨论工具参数、后台变更或历史测试故障。list 仅用户明确查询时使用；"
++        "view 默认 followups，生日查询用 birthdays，用户要全部才用 all，不主动检查无关生日。"
+         "新消息后必须逐一 review 仍有效事项；信息变化用 update，完成用 complete，拒绝用 cancel；不复核则暂停发送。"
+         "when 可用 today/tomorrow/day_after_tomorrow，带明确结束时间可用 tomorrow 17:00，由服务器按北京时间解析；"
+         "也可用事件结束的 ISO 日期时间或 YYYY-MM-DD。不明确则省略保存候选，不发送；topic 必须省略 when。"
+@@ -24,8 +28,16 @@
+     "parameters": {
+         "type": "object", "additionalProperties": False,
+         "properties": {
+-            "action": {"type": "string", "enum": ["record", "review", "update", "complete", "cancel", "list", "settings", "birthday_add", "birthday_remove"]},
++            "action": {"type": "string", "enum": ["batch", "record", "review", "update", "complete", "cancel", "list", "settings", "birthday_add", "birthday_remove"]},
++            "operations": {"type": "array", "minItems": 1, "maxItems": 6, "items": {
++                "type": "object", "additionalProperties": False, "required": ["action"], "properties": {
++                    "action": {"type": "string", "enum": ["record", "review", "update", "complete", "cancel"]},
++                    "id": {"type": "string"}, "kind": {"type": "string", "enum": ["event", "topic"]},
++                    "summary": {"type": "string", "maxLength": 180}, "text": {"type": "string", "maxLength": 600},
++                    "when": {"type": "string"},
++                }}},
+             "id": {"type": "string"}, "kind": {"type": "string", "enum": ["event", "topic"]},
++            "view": {"type":"string", "enum":["followups","birthdays","all"]},
+             "summary": {"type": "string", "maxLength": 180}, "text": {"type": "string", "maxLength": 600},
+             "when": {"type": "string"}, "enabled": {"type": "boolean"},
+             "subject": {"type": "string", "maxLength": 40}, "month": {"type": "integer", "minimum": 1, "maximum": 12},

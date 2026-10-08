@@ -7,6 +7,8 @@ Where it goes and why:
   * `display.personality` — the *selected* name. Set separately with
     `hermes config set display.personality xiaoyun`; it is what activates the overlay
     on both the interactive CLI and the messaging gateway.
+  * Compact JSON uses system_prompt/tone/style directly; legacy backups still
+    support personality.core_traits and speech_style.general.
   * `render_personality_prompt()` consumes exactly four fields:
     `description` (display only), `system_prompt`, `tone`, `style`.
     The remaining JSON fields have no slot in Hermes' schema.
@@ -42,19 +44,25 @@ def joined(items: object) -> str:
     return "；".join(str(i).strip() for i in items if str(i).strip())
 
 
+def build_entry(persona: dict) -> dict:
+    """提取有效注入字段，兼容精简格式和备份中的旧嵌套格式。"""
+    return {
+        "description": str(persona.get("description") or "").strip(),
+        "system_prompt": str(persona.get("system_prompt") or "").strip(),
+        "tone": str(persona.get("tone") or "").strip() if "tone" in persona
+        else joined((persona.get("personality") or {}).get("core_traits")),
+        "style": str(persona.get("style") or "").strip() if "style" in persona
+        else joined((persona.get("speech_style") or {}).get("general")),
+    }
+
+
 def main() -> int:
     persona = json.loads(SRC.read_text(encoding="utf-8"))
     name = str(persona.get("id") or "").strip().lower()
     if not name:
         print("[persona] the JSON has no usable 'id'")
         return 1
-
-    entry = {
-        "description": str(persona.get("description") or "").strip(),
-        "system_prompt": str(persona.get("system_prompt") or "").strip(),
-        "tone": joined((persona.get("personality") or {}).get("core_traits")),
-        "style": joined((persona.get("speech_style") or {}).get("general")),
-    }
+    entry = build_entry(persona)
     if not entry["system_prompt"]:
         print("[persona] the JSON has no system_prompt — refusing to write")
         return 1
