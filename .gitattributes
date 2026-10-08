@@ -1,3 +1,4 @@
 # Linux 部署脚本和校验补丁保持 LF，避免 Windows 自动换行改变哈希。
 patches/hermes-v0.21.5-social*.patch text eol=lf
 staging/*social*.sh text eol=lf
+staging/start-chat-agent-low-memory.sh text eol=lf
