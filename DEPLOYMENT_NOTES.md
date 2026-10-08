@@ -12,7 +12,7 @@
 | 固定提交 | `f97608f178d1ffeca59860195ab7da295f7c8e5f` |
 | 运行方式 | 单个手动网关；未部署 `/etc/systemd/system/hermes.service` |
 | 平台 | QQ 私聊与群白名单；微信仅授权账号私聊，真实收发和多轮上下文已验证 |
-| 模型 | 主用 `deepseek/deepseek-flash`，备用 `kldai/gpt-6-sol` |
+| 模型 | 主用 `cn:deepseek-v4-flash`（provider=deepseek，wb 中转），备用 `kldai/gpt-6-sol` |
 | 工具 | 基础四工具不变；QQ／微信另启用受限 `cronjob` 私聊提醒 |
 | STT | `enabled=false`，遗留 `language: en`，启用前必须调整 |
 | 会话 | SQLite；`group_sessions_per_user=true` |
@@ -287,3 +287,44 @@ vmstat 1 3
 回退仅需正常停止当前单网关，使用原 `/var/lib/hermes/.local/bin/hermes gateway run` 启动，并在启动前移除 `MALLOC_ARENA_MAX`、`MALLOC_TRIM_THRESHOLD_`；保留原 HERMES_HOME 与三个包镜像环境。核验两平台连接及单实例。不要恢复旧配置、数据库或提醒快照，也无需撤回源码补丁。两个参数须在 Python 启动前设置，不能仅在已启动进程加载的 `.env` 中添加。
 
 `C:\file\pidfliter.md` 原有主站、Codex 与隧道章节保留，末尾追加此次新 PID；旧 PID 741516 已退出。修改白名单前先备份，不覆盖其他项目内容。
+
+## 人格重复内容合并（2026-10-08）
+
+用户授权合并重复内容。人格源更新为 v1.2.3，将 tone／style 中独有的复杂问题拆解、不过度煽情等要求并入 system_prompt，两个字段保留为空；合并 AI 身份、群聊隐私、主动闲聊和表达风格的重复描述。个人偏好、L0–L3、纠错、任务处理和定时提醒文案整段保留，显示 description 与身份元数据未改写。关心工具与每轮静默维护提示均未修改。
+
+- 本地逐字节备份 `backups/personas/xiaoyun-v1.2.2-before-merge-20261008.json`，SHA-256 `b9b5bd23d9b5164c11ba8291c39a40b0af53c12b00e1ae7ebc6aa5fba682c28c`；源 `staging/personas/xiaoyun.json`。
+- 实际渲染 1905→1644 字符，减少 261 字符／13.7%；新 system_prompt SHA-256 `71851b60f3fd37c736fc4f553584abff3d13476c59625466a5d28a9ce6b2187f`。字符比例不是总请求 token 或费用的同比降幅。
+- 服务器备份 `/var/lib/hermes/.hermes/backups/persona-merge-20261008T064702Z/`，包含 config.yaml、.env、Cron 快照、state.db／social.db、远程旧人格源及相关源码；目录 0700、文件 0600。数据库使用 SQLite backup 接口，没有回写旧业务数据。
+- `staging/deploy-persona-merge.py` 在固定提交和既有补丁预检后，只替换 YAML 中小云条目，其他配置语义及条目外文字保持；原子更新 config.yaml 和 `/var/lib/hermes/xiaoyun.json`，失败自动恢复。首次合并已执行，脚本再次执行会因旧人格不匹配拒绝覆盖。
+- 核实当前版本 `GatewayConfigLoadersMixin._get_system_prompt_for_channel` 每轮加载当前 profile 配置，生产进程没有 HERMES_EPHEMERAL_SYSTEM_PROMPT 覆盖。无需停机或重启，新规则从下一轮聊天生效。
+- 使用现有私聊路由调用 QQ／微信实际频道解析方法，均等于新人格；核验单网关 PID 745940、低内存启动参数、QQ 群被动回复标记及 social 补丁反向检查通过，未归属记忆／审批均为 0。源码差异逐字节保持一致。
+- 维护脚本语法和 YAML 序列化／非目标配置校验通过；没有运行 Agent、连接模型提供方或启动第二网关，本次未额外发送真实聊天测试，不消耗 DeepSeek token。服务器临时上传目录及脚本已清理。
+
+回退：仅把上述服务器备份的 config.yaml 与 xiaoyun-before.json 恢复至原配置和 `/var/lib/hermes/xiaoyun.json`；本地源恢复自 v1.2.2 备份。恢复前核查是否有后续配置修改，有则只还原小云条目，保留后续修改。用原子替换保留权限并核验两平台解析，下一轮生效，无需重启。不要恢复数据库、微信凭据或 Cron 任务快照，也无需撤回源码补丁。
+
+## 用户更换 DeepSeek 密钥后的接口测试（2026-10-08）
+
+用户自行修改 DEEPSEEK_API_KEY 后授权测试。调用固定版本真实凭据解析器，确认其读取值与当前 .env 一致，不输出密钥。当前实际 Base URL 为非 DeepSeek 官方域名；模型仍为 deepseek-flash。
+
+- 模型列表接口 HTTP 200，但未列出当前模型 deepseek-flash。
+- 两次最小 chat/completions 请求均返回 HTTP 503、api_error／no_healthy_account；首次约 1.32 秒，复查与重试共约 0.84 秒。每次最多 64 输出 token，没有成功生成回复；失败请求实际计费需以接口服务商为准。
+- 当前新配置的聊天可用性未通过，错误提示可能涉及中转上游账号／模型路由，不能仅凭模型列表成功断言聊天权限正常或密钥无误。需核对服务商支持的模型名及上游状态。
+- 本次仅接口测试，未修改配置、模型、密钥或源码，未重启网关；临时客户端随脚本结束关闭，没有额外后台进程。现有缓存会话是否已切换新密钥未验收。
+
+## 中转接口切换与通路验证（2026-10-08）
+
+用户授权使用 `https://wb.yinxingye.space/v1` 及其提供的测试密钥先验证、再修改生产配置。密钥仅经 SSH 标准输入传递，未写入本地文件、源码或文档，也未输出；正式值仅保存到服务器受限 .env。
+
+- 模型列表 HTTP 200，提供 `cn:deepseek-v4-flash` 等模型；旧名称 deepseek-flash 仍为 503／no_healthy_account。按实际名称测试普通回复 HTTP 200、1.76 秒、48 token；模拟工具调用 HTTP 200、1.75 秒、367 token，返回正确函数调用，没有执行工具动作。
+- 保留 provider=deepseek，将 model.default 改为 `cn:deepseek-v4-flash`，model.base_url 与 DEEPSEEK_BASE_URL 同为新地址，并更新 DEEPSEEK_API_KEY。只修改这四个配置项，其他配置语义、人格、原有补丁及源码保持；没有升级 Hermes。
+- 备份 `/var/lib/hermes/.hermes/backups/api-change-20261008T073926Z/`，包含 config.yaml、.env、state.db／social.db、Cron 快照和相关源码，目录 0700／文件 0600。维护脚本 `staging/deploy-deepseek-endpoint.py` 不含密钥，原子更新，部署失败会恢复配置并重启单个原网关。
+- 固定提交、既有补丁、未归属记忆／审批为 0、在途 Agent 为 0 核验后，正常停止 PID 745940，使用低内存启动器启动单个网关 **PID 770716**；QQ／微信重新连接，两个分配器启动参数保留。
+- 使用 Hermes 实际凭据解析器核对新地址和密钥，再用 OpenAI 客户端验证新模型的流式文本回复。流式测试及后续路由检查共约 4.51 秒，不能视作纯模型响应时长。两平台模型工具 schema、本人私聊路由、social 数据库模式和计数核验通过；启动 RSS 189.57 MiB，仅为启动快照。
+- 本次通路验证没有发送平台真实消息，QQ／微信新配置真实聊天仍待用户复测。用户计划撤销测试密钥；当前网关依赖这枚密钥，撤销前须换入有效密钥并重启，否则后续模型请求可能失败。没有代用户撤销密钥。
+- 服务器临时上传脚本清理，进程白名单追加新 PID 并保留全部原内容。未重启共享主机或停止其他业务。
+
+回退：正常停止单个网关，核查后恢复本次备份的 config.yaml 和 .env，并用 `/var/lib/hermes/start-chat-agent.sh` 启动一个网关；不得恢复业务数据库或 Cron 快照。备份保留的是切换前配置，其 deepseek-flash 通路此前测试失败，因此回退仅还原配置，不能保证旧接口恢复可用。恢复前有后续修改时，仅还原上述四个配置项。测试密钥撤销后不得重新启用它。
+
+### 用户再次替换密钥后的验证
+
+用户自行替换 .env 密钥后，使用 Hermes 实际解析的新凭据测试当前 `cn:deepseek-v4-flash`：HTTP 200、正常结束、1.79 秒，输入 34／输出 14，共 48 token。密钥未输出；本次未修改配置或重启网关，PID 770716 仍运行。现有缓存客户端是否使用新密钥不能由独立接口测试证明，须重启后验收。
