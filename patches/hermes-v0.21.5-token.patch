@@ -1,0 +1,414 @@
+--- a/tools/social_tool.py
++++ b/tools/social_tool.py
+@@ -4,32 +4,19 @@
+ 
+ 
+ def denied(args, **kwargs):
+-    return json.dumps({"success": False, "error": "仅可在已核实身份的本人私聊中使用。"}, ensure_ascii=False)
++    return json.dumps({"success": False, "error": "仅可在已核实身份的本人私聊中使用。"}, ensure_ascii=False, separators=(",", ":"))
+ 
+ 
+ SCHEMA = {
+     "name": "social_manage",
+     "description": (
+-        "管理本人私聊主动关心和公历生日订阅。正常聊天可记录用户本人明确的未来事件(event)或具体未结束的日常话题(topic)；"
+-        "每轮最多新增一项，禁止模糊愿望、第三方事件及健康、财务、创伤、私密关系等敏感话题。"
+-        "普通聊天静默维护候选，优先 action=batch 一次完成复核和最多一项新增，避免多个模型往返。"
+-        "普通候选不向用户宣告记住了、记下来了、记录了或会提醒；回复只自然接话，显式提醒/生日订阅才确认创建。"
+-        "不承诺几点主动问候，不主动讨论工具参数、后台变更或历史测试故障。list 仅用户明确查询时使用；"
+-        "view 默认 followups，生日查询用 birthdays，用户要全部才用 all，不主动检查无关生日。"
+-        "新消息后必须逐一 review 仍有效事项；信息变化用 update，完成用 complete，拒绝用 cancel；不复核则暂停发送。"
+-        "when 可用 today/tomorrow/day_after_tomorrow，带明确结束时间可用 tomorrow 17:00，由服务器按北京时间解析；"
+-        "也可用事件结束的 ISO 日期时间或 YYYY-MM-DD。不明确则省略保存候选，不发送；topic 必须省略 when。"
+-        "记录失败不要反复猜日期，不要改用 cronjob 或 memory 代替；Cron 只处理用户明确要求的提醒。"
+-        "topic 默认 24 小时后，事件结束 2 小时后或次日 18 点；text 是按当前人格提前写好的最终关心正文，后台不调用模型。"
+-        "用户说不要主动关心时 settings enabled=false；新用户须同意后开启。生日必须用户明确确认，confirmed=true；"
+-        "month/day 为公历月日，不存出生年，subject 是订阅对象的简短称呼，通知只发订阅本人。生日 text 最多160字。默认 09:00 北京时间，允许08:00–22:59；"
+-        "2 月 29 日非闰年按 3 月 1 日并告知用户。禁用主动关心不影响生日和 cronjob 明确提醒。"
++        "本人私聊主动关心与公历生日。可信状态提供当前北京时间、enabled、revision、pending；相对日期以当前时间为准，不沿用历史日期。每轮依据真实消息复核所有 pending：仍有效 review、变化 update、结束 complete、拒绝 cancel；不复核暂停发送。pending 的 due_bj/expires_bj 是北京时间，调度由服务端负责；review 只传 id，无需换算时间戳或重算问候时间。优先一次 batch 完成全部复核及最多一项新增；直接用 pending，无需先 list，成功后不再查询；无维护事项不调用。enabled=true 可从自然聊天记录本人具体未来事件 event 或未结束日常话题 topic，无需刻意设置提醒；禁止模糊愿望、第三方事件、健康/财务/创伤/私密关系。普通候选静默维护，只自然接话，不宣告记住了、记下来了、记录了、加入跟进、会提醒，不展示存储/调度、问候时间、工具参数、后台变化或历史测试故障。显式提醒、生日订阅或管理查询才确认。list 仅明确查询：默认 followups，生日 birthdays，全部 all；不检查无关生日。when 支持 today/tomorrow/day_after_tomorrow，可加结束时间 HH:MM（tomorrow 17:00），或结束时间 ISO/YYYY-MM-DD。日期不明省略 when 仅存 event 候选不发送；topic 省略 when。事件结束2小时后或次日18点，topic 24小时后。text 是当前人格的最终正文，后台不调模型，不假装知道结果、不强求回复。失败不反复猜日期，不以 cronjob/memory 代替；Cron 仅显式提醒。拒绝关心立即 settings enabled=false，新用户同意后开启；关闭不影响生日/Cron。生日须明确确认 confirmed=true；subject 简称，month/day 公历月日，不存出生年，只通知订阅本人；text≤160字，默认北京时间09:00，可选08:00–22:59；非闰年2月29日按3月1日并告知。"
+     ),
+     "parameters": {
+         "type": "object", "additionalProperties": False,
+         "properties": {
+             "action": {"type": "string", "enum": ["batch", "record", "review", "update", "complete", "cancel", "list", "settings", "birthday_add", "birthday_remove"]},
+-            "operations": {"type": "array", "minItems": 1, "maxItems": 6, "items": {
++            "operations": {"description": "batch 顶层仅 action、operations；其他参数放在各操作内，勿带 clock。", "type": "array", "minItems": 1, "maxItems": 6, "items": {
+                 "type": "object", "additionalProperties": False, "required": ["action"], "properties": {
+                     "action": {"type": "string", "enum": ["record", "review", "update", "complete", "cancel"]},
+                     "id": {"type": "string"}, "kind": {"type": "string", "enum": ["event", "topic"]},
+@@ -41,7 +28,7 @@
+             "summary": {"type": "string", "maxLength": 180}, "text": {"type": "string", "maxLength": 600},
+             "when": {"type": "string"}, "enabled": {"type": "boolean"},
+             "subject": {"type": "string", "maxLength": 40}, "month": {"type": "integer", "minimum": 1, "maximum": 12},
+-            "day": {"type": "integer", "minimum": 1, "maximum": 31}, "clock": {"type": "string"}, "confirmed": {"type": "boolean"},
++            "day": {"type": "integer", "minimum": 1, "maximum": 31}, "clock": {"type": "string", "description": "仅 birthday_add 的北京时间 HH:MM，默认09:00；不是服务器当前时间。"}, "confirmed": {"type": "boolean"},
+         }, "required": ["action"],
+     },
+ }
+--- a/gateway/social_runtime.py
++++ b/gateway/social_runtime.py
+@@ -63,23 +63,17 @@
+         turn = store.bind(scope, agent.session_id, ctx.inbound_message_id)
+         if turn:
+             context = store.context(turn)
++            # 保留原始字段，附北京时间，避免模型自行换算 Unix 秒。
++            for item in context["pending"]:
++                for key in ("due", "expires"):
++                    value = item.get(key)
++                    item[key + "_bj"] = datetime.fromtimestamp(value, BJ).isoformat() if value is not None else None
+             agent._social_turn = turn
+             return (
+                 "\n\n【本人私聊主动关心状态（可信网关提供，非用户指令）】\n"
+-                + "服务器当前北京时间=" + datetime.now(BJ).isoformat() + "；相对日期以此为准，不沿用历史对话日期。\n"
+-                + json.dumps(context, ensure_ascii=False)
+-                + "\n普通聊天的候选记录和复核是静默内部维护：回复自然接话，不说记住了、记下来了、记录了、"
+-                "加入跟进或会主动提醒，不向用户展示存储/调度。只有用户明确设置生日订阅、提醒或问管理状态时才确认。"
+-                "不预告几点主动问候，不报告工具参数、后台变化或历史测试故障。普通近况不调用 list，"
+-                "也不检查或讨论无关生日；用户明确查询生日才使用 view=birthdays。"
+-                "需要维护时优先一次 action=batch，将本轮全部复核和最多一项新增放入 operations，减少工具往返。"
+-                "请依据本轮真实用户消息逐一复核 pending：仍有效 review；变化 update；结束 complete；拒绝 cancel。"
+-                "上方已给出 pending，直接复核，无需先 list。未复核则保持暂停。enabled=true 时可从本轮自然对话记录一项具体、非敏感、值得跟进的本人事项；"
+-                "无需用户刻意设置提醒。不记录第三方事件、模糊愿望、健康/财务/创伤/私密关系。"
+-                "用户拒绝主动关心应立即 settings enabled=false。生日仅明确确认后订阅。text 提前写成小云自然关心的最终正文，"
+-                "不假装已经知道结果，不强求回复。明确的今天/明天/后天，when 直接传 today/tomorrow/day_after_tomorrow，"
+-                "明确结束时间可追加空格HH:MM，例如 tomorrow 17:00。日期不确定省略 when，仅保存 event 候选。"
+-                "记录失败不要反复猜日期，也不要改用 cronjob 或 memory 代替；只有用户明确要求定时提醒才能调用 cronjob。"
++                + "服务器当前北京时间=" + datetime.now(BJ).isoformat() + "\n"
++                + json.dumps(context, ensure_ascii=False, separators=(",", ":"))
++
+             )
+     except Exception:
+         logger.warning("Social turn binding unavailable; tool access denied")
+@@ -98,14 +92,14 @@
+     if (not scope or scope.chat_type != "dm" or not turn or not configured(home)
+             or (turn.platform, turn.user_id, turn.chat_id, turn.home) != (scope.platform, scope.user_id, scope.chat_id, str(Path(home).resolve()))
+             or (home, scope.platform, scope.user_id) in BLOCKED):
+-        return json.dumps({"success": False, "error": "身份未核实或功能未启用。"}, ensure_ascii=False)
++        return json.dumps({"success": False, "error": "身份未核实或功能未启用。"}, ensure_ascii=False, separators=(",", ":"))
+     try:
+         result = SocialStore(home).operate(turn, args)
+-        return json.dumps({"success": True, **result}, ensure_ascii=False)
++        return json.dumps({"success": True, **result}, ensure_ascii=False, separators=(",", ":"))
+     except ValueError as exc:
+-        return json.dumps({"success": False, "error": str(exc)}, ensure_ascii=False)
++        return json.dumps({"success": False, "error": str(exc)}, ensure_ascii=False, separators=(",", ":"))
+     except Exception:
+-        return json.dumps({"success": False, "error": "关心存储暂不可用，请稍后重试。"}, ensure_ascii=False)
++        return json.dumps({"success": False, "error": "关心存储暂不可用，请稍后重试。"}, ensure_ascii=False, separators=(",", ":"))
+ 
+ 
+ def verify_session(home, item):
+--- a/tools/qq_reminder.py
++++ b/tools/qq_reminder.py
+@@ -14,7 +14,7 @@
+ 
+ 
+ def _result(**values):
+-    return json.dumps(values, ensure_ascii=False)
++    return json.dumps(values, ensure_ascii=False, separators=(",", ":"))
+ 
+ 
+ def _owned(job, scope):
+@@ -35,7 +35,7 @@
+ 
+ 
+ def reminder_schema():
+-    return {"description": "当前平台私聊文字提醒：create 创建，list 查看自己的提醒，remove 按 job_id 取消。"
++    return {"description": "本人私聊提醒：create 创建，list 查看，remove 按 job_id 取消。"
+             "仅一次性提醒，不运行模型。prompt 必须是届时直接发送的提醒正文，不是给模型的指令。"
+             "schedule 使用 'in 10m' 或带 +08:00 的 ISO 时间，最长 30 天；每用户最多 20 条，"
+             "含已完成记录，移除后释放额度。群聊不支持。不接受脚本、技能或其他收件人。",
+@@ -135,4 +135,4 @@
+                     jobs.remove_job(candidate["id"])
+             path.unlink(missing_ok=True)
+             return _result(success=False, error="提醒调度注册失败，未保留此次提醒。")
+-        return _result(success=True, **_view(job), message="提醒已保存，将通过当前网关投递；发送结果仍受当前平台权限和会话有效期限制。")
++        return _result(success=True, **_view(job), message="已保存；投递受平台权限及会话有效期限制。")
+--- a/tools/memory_tool.py
++++ b/tools/memory_tool.py
+@@ -79,7 +79,7 @@
+             payload["matched_entry"] = result["matched_entry"]
+     else:
+         return None
+-    return None if result.get("success") else json.dumps(result, ensure_ascii=False)
++    return None if result.get("success") else json.dumps(result, ensure_ascii=False, separators=(",", ":"))
+ 
+ 
+ def _gate_or_stage(store: "MemoryStore", summary: str, detail: str, payload: Dict[str, Any]) -> Optional[str]:
+@@ -99,7 +99,7 @@
+     record = wa.stage_write(wa.MEMORY, payload, summary=f"{summary}: {detail[:120]}",
+                             origin=wa.current_origin(), memory_dir=store.memory_dir)
+     return json.dumps({"success": True, "staged": True, "pending_id": record["id"], "message": decision.message},
+-                      ensure_ascii=False)
++                      ensure_ascii=False, separators=(",", ":"))
+ 
+ 
+ # action -> (store call, gate (summary, detail) text) for the live tool path and staged replay.
+@@ -150,7 +150,7 @@
+             "error": (f"'{action}' needs old_text -- a short unique substring of the entry "
+                       f"to {action}. None was provided. Reissue the {action} with old_text "
+                       f"set to part of one of the current_entries below.{replace_hint}"),
+-            "current_entries": store._entries_for(target), "usage": store._usage(target)}, ensure_ascii=False)
++            "current_entries": store._entries_for(target), "usage": store._usage(target)}, ensure_ascii=False, separators=(",", ":"))
+     if action == "replace" and not content:
+         return tool_error("content is required for 'replace' action.", success=False)
+     return None
+@@ -198,7 +198,7 @@
+             "message": ("Background review may not delete memory entries unattended. The proposed "
+                         f"{'batch' if operations is not None else action} was staged for your approval — "
+                         "review it with /memory pending (approve to apply, discard to drop)."),
+-        }, ensure_ascii=False)
++        }, ensure_ascii=False, separators=(",", ":"))
+     except Exception:
+         logger.warning("Failed to stage background-review consolidation; denying", exc_info=True)
+         return tool_error(
+@@ -223,7 +223,7 @@
+         return tool_error("Group memory can only be read from a verified private chat.", success=False)
+     target_error = _memory_target_error(store, target)
+     if target_error is not None:
+-        return json.dumps(target_error)
++        return json.dumps(target_error, separators=(",", ":"))
+     if operations:
+         if not isinstance(operations, list):
+             return tool_error("operations must be a list of {action, content?, old_text?} objects.", success=False)
+@@ -234,7 +234,7 @@
+         gate_result = _apply_write_gate(store, "batch", target, None, None, operations)
+         if gate_result is not None:
+             return gate_result
+-        return json.dumps(store.apply_batch(target, operations), ensure_ascii=False)
++        return json.dumps(store.apply_batch(target, operations), ensure_ascii=False, separators=(",", ":"))
+     if action not in _STORE_ACTIONS:
+         return tool_error(f"Unknown action '{action}'. Use: add, replace, remove", success=False)
+     invalid = (_validate_single_op(store, action, target, content, old_text)
+@@ -242,7 +242,7 @@
+                or _apply_write_gate(store, action, target, content, old_text))
+     if invalid is not None:
+         return invalid
+-    return json.dumps(_STORE_ACTIONS[action][0](store, target, content, old_text), ensure_ascii=False)
++    return json.dumps(_STORE_ACTIONS[action][0](store, target, content, old_text), ensure_ascii=False, separators=(",", ":"))
+ 
+ 
+ def get_builtin_memory_config(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+@@ -309,30 +309,7 @@
+ MEMORY_SCHEMA = {
+     "name": "memory",
+     "description": (
+-        "Save durable facts to persistent memory that survive across sessions. Memory is "
+-        "injected into every future turn, so keep entries compact and high-signal.\n\n"
+-        "HOW: make ALL your changes in ONE call via an 'operations' array (each item: "
+-        "{action, content?, old_text?}). The batch applies atomically and the char limit is "
+-        "checked only on the FINAL result — so a single call can remove/replace stale entries "
+-        "to free room AND add new ones, even when an add alone would overflow. The response "
+-        "reports current/limit chars and confirms completion; one batch call finishes the "
+-        "update, so don't repeat it. Use the bare action/content/old_text fields only for a "
+-        "single lone change.\n\n"
+-        "WHEN: only for facts that apply to EVERY session regardless of task: who the user "
+-        "is, stable environment facts, standing conventions with no task home. Anything "
+-        "learned while doing a task (procedures, pitfalls, and the user's preferences and "
+-        "corrections for that kind of work) belongs in the task's skill via skill_manage, "
+-        "where it loads only when relevant; memory is injected into every turn and must "
+-        "stay small.\n\n"
+-        "IF FULL: an add is rejected with the current entries shown. Reissue as ONE batch that "
+-        "removes or shortens enough stale entries and adds the new one together.\n\n"
+-        "TARGETS: 'user' = who the user is (name, role, preferences, style). 'memory' = your "
+-        "notes (environment, conventions, tool quirks, lessons). In QQ/Weixin private chat, "
+-        "memory(action='read', target='group') reads this user's shared group memory on demand; "
+-        "it never writes that memory into private memory. Group chat cannot read private memory.\n\n"
+-        "SKIP: trivial/obvious info, easily re-discovered facts, raw data dumps, task progress, "
+-        "completed-work logs, temporary TODO state (use session_search for those). Reusable "
+-        "procedures belong in a skill, not memory."
++        "Store compact, durable cross-session facts; injected each turn. Prefer ONE atomic operations batch for all changes; budget checks the final result. If full, batch shorten/remove stale entries with additions. Do not repeat a successful update. Single changes may use action/content/old_text. Task procedures, pitfalls and task-specific preferences belong in the relevant skill, not memory. Skip trivial/recoverable facts, raw dumps, progress, completed logs and temporary TODOs; use session_search for history.\nTARGETS: 'user' = who the user is (name, role, preferences, style). 'memory' = your notes (environment, conventions, tool quirks, lessons). QQ/Weixin private chat: read with target='group' only on request, without copying to private memory. Group chat cannot read private memory."
+     ),
+     "parameters": {
+         "type": "object",
+@@ -340,31 +317,29 @@
+             "action": {
+                 "type": "string",
+                 "enum": ["add", "replace", "remove", "read"],
+-                "description": "The action to perform. 'read' is only for target='group' from private chat; omit for batch operations."
++                "description": "Single change; read only target=group in private chat. Omit for batch."
+             },
+             "target": {
+                 "type": "string",
+                 "enum": ["memory", "user", "group"],
+-                "description": "'memory' or 'user' writes the current chat scope; 'group' reads shared group memory from private chat only."
++                "description": "memory/user: current chat scope; group: read own shared group memory from private chat."
+             },
+             "content": {
+                 "type": "string",
+-                "description": "The entry content. Required for 'add' and 'replace'. For 'replace' it is the COMPLETE new entry text: the whole matched entry is overwritten, so include everything you want to keep. Alias: 'new_text' is also accepted (same full-entry meaning)."
++                "description": "Required for add/replace. Replace overwrites the WHOLE matched entry: include everything to keep."
+             },
+             "old_text": {
+                 "type": "string",
+-                "description": "REQUIRED for 'replace' and 'remove' (single-op shape): a short unique substring IDENTIFYING the existing entry to modify -- it locates the entry, it is not spliced out. Omit only for 'add'."
++                "description": "Required for replace/remove: unique substring locating the entry, not a text patch."
+             },
+             "new_text": {
+                 "type": "string",
+-                "description": "Alias for 'content' (single-op shape): the COMPLETE new entry for 'replace', not a patch of old_text. If both are set, 'content' wins."
++                "description": "Alias of content (content wins); full replacement entry."
+             },
+             "operations": {
+                 "type": "array",
+                 "description": (
+-                    "Batch shape: a list of operations applied atomically in one call "
+-                    "against the final char budget. Preferred when making multiple changes "
+-                    "or consolidating to make room. Each item is {action, content?, old_text?}."
++                    "Preferred atomic batch of action/content?/old_text?; budget checked on final state."
+                 ),
+                 "items": {
+                     "type": "object",
+--- a/tools/session_search_tool.py
++++ b/tools/session_search_tool.py
+@@ -97,7 +97,7 @@
+ 
+ 
+ def _ok(**payload) -> str:
+-    return json.dumps({"success": True, **payload}, ensure_ascii=False)
++    return json.dumps({"success": True, **payload}, ensure_ascii=False, separators=(",", ":"))
+ 
+ 
+ def _is_compaction_summary(content: str) -> bool:
+@@ -679,19 +679,7 @@
+ SESSION_SEARCH_SCHEMA = {
+     "name": "session_search",
+     "description": (
+-        "Recall past conversations: search or read old Hermes sessions (FTS5), or "
+-        "scroll inside one. Four shapes, picked by args: `query` = discovery "
+-        "(top-N matching sessions, top result fully hydrated); `session_id` + "
+-        "`around_message_id` = scroll (window of messages around an anchor); "
+-        "`session_id` alone = read a whole session — how you resolve an "
+-        "`@session:<profile>/<id>` link (split on '/' into profile + id); no "
+-        "args = browse recent sessions. Results are actual DB messages, no LLM. "
+-        "Searches conversation history ONLY — when the user gave a direct "
+-        "source (URL, file, contact, live system), inspect that first; never "
+-        "conclude 'not found' from history alone. Use for questions about past "
+-        "conversations: 'what did we do about X', 'where did we leave Y'. When "
+-        "referring the user to a session, write its `link` value verbatim "
+-        "inline (it renders as a titled link)."
++        "Recall DB history without LLM: query searches (top result hydrated); no args browses recent sessions; session_id reads a session; session_id+around_message_id scrolls. Resolve @session:<profile>/<id> via profile and session_id. Messaging callers may only access verified user scope/current profile. Use result link verbatim inline. Search covers history only: inspect any user-provided direct source first; history misses do not establish source absence."
+     ),
+     "parameters": {
+         "type": "object",
+@@ -699,18 +687,13 @@
+             "query": {
+                 "type": "string",
+                 "description": (
+-                    "Search query (discovery shape). Keywords, phrases, or boolean "
+-                    "expressions to find in past sessions. Omit to browse recent "
+-                    "sessions. Ignored when session_id + around_message_id are set "
+-                    "(scroll shape)."
++                    "Keywords, phrases or boolean query; omit to browse. Ignored for scrolling."
+                 ),
+             },
+             "limit": {
+                 "type": "integer",
+                 "description": (
+-                    "Discovery shape only. Max sessions to return (default 3, max 10). "
+-                    "Bump to 5–10 when the topic likely spans several sessions and you "
+-                    "want to pick the right one to scroll into."
++                    "Discovery sessions: default 3, max 10; increase for topics spanning sessions."
+                 ),
+                 "default": 3,
+             },
+@@ -718,89 +701,65 @@
+                 "type": "string",
+                 "enum": ["newest", "oldest"],
+                 "description": (
+-                    "Discovery shape only. Temporal bias on top of FTS5 ranking: omit "
+-                    "for relevance-only (exploratory recall), 'newest' for "
+-                    "\"where did we leave X\", 'oldest' for \"how did X start\"."
++                    "Discovery ranking bias: omit=relevance; newest=latest progress; oldest=origins. Not a time bound."
+                 ),
+             },
+             "detail": {
+                 "type": "string",
+                 "enum": ["adaptive", "full"],
+                 "description": (
+-                    "Discovery shape only. 'adaptive' (default) fully hydrates the "
+-                    "top-ranked result and returns only the exact anchor message for "
+-                    "lower-ranked results. 'full' returns bookends and the complete "
+-                    "anchored window for every result."
++                    "Discovery: adaptive hydrates top hit, anchor only for others; full gives every hit bookends and complete anchor window."
+                 ),
+                 "default": "adaptive",
+             },
+             "after": {
+                 "type": "string",
+                 "description": (
+-                    "Discovery shape only. Inclusive lower bound on session start "
+-                    "time. ISO date/datetime (e.g. 2026-06-01) or relative duration "
+-                    "(7d, 24h, 2w = within the last N). Use only when the user names "
+-                    "a time frame. sort is a ranking bias, not a bound."
++                    "Discovery inclusive session-start lower bound: ISO date/time or 7d/24h/2w. Only if user specifies timeframe."
+                 ),
+             },
+             "before": {
+                 "type": "string",
+                 "description": (
+-                    "Discovery shape only. Exclusive upper bound on session start "
+-                    "time. ISO date/datetime (a date-only value is midnight UTC that "
+-                    "day) or relative duration (7d = older than a week). Use only "
+-                    "when the user names a time frame."
++                    "Discovery exclusive session-start upper bound: ISO date/time (date=UTC midnight) or 7d (older than week). Only if user specifies timeframe."
+                 ),
+             },
+             "exclude_session_ids": {
+                 "type": "array",
+                 "items": {"type": "string"},
+                 "description": (
+-                    "Discovery shape only. Session ids already inspected this task. "
+-                    "Those sessions and their lineage are omitted so a later query "
+-                    "explores instead of repeating the same hit. Cap 20."
++                    "Discovery: exclude inspected sessions and lineage; max 20."
+                 ),
+             },
+             "session_id": {
+                 "type": "string",
+                 "description": (
+-                    "Scroll shape. Session to read inside. Use the session_id returned "
+-                    "from a prior discovery call. Must be paired with "
+-                    "around_message_id."
++                    "Read returned session ID; add around_message_id to scroll."
+                 ),
+             },
+             "around_message_id": {
+                 "type": "integer",
+                 "description": (
+-                    "Scroll shape. Message id to center the window on — use "
+-                    "match_message_id from a discovery result, or any id from a "
+-                    "prior window."
++                    "Scroll anchor: match_message_id or an ID from a prior window."
+                 ),
+             },
+             "window": {
+                 "type": "integer",
+                 "description": (
+-                    "Scroll shape only. Messages to return on each side of the anchor "
+-                    "(anchor itself always included). Clamped to [1, 20]. Default 5."
++                    "Scroll messages each side, anchor included; clamp 1–20, default 5."
+                 ),
+                 "default": 5,
+             },
+             "role_filter": {
+                 "type": "string",
+                 "description": (
+-                    "Optional. Comma-separated roles to include. Discovery defaults to "
+-                    "'user,assistant' (tool output is usually noise). Pass "
+-                    "'user,assistant,tool' to include tool output (debugging tool "
+-                    "behaviour) or 'tool' to search tool output only."
++                    "Comma-separated roles; default user,assistant; add tool for tool output or use tool alone."
+                 ),
+             },
+             "profile": {
+                 "type": "string",
+                 "description": (
+-                    "Optional. Read sessions from another Hermes profile's database "
+-                    "(read-only). Use when resolving an `@session:<profile>/<id>` link: "
+-                    "pass the profile segment here with session_id as the id segment. "
+-                    "Omit to use the current profile."
++                    "CLI: read-only alternate profile from session link; omit=current. Messaging: cross-profile denied."
+                 ),
+             },
+         },

@@ -2,3 +2,5 @@
 patches/hermes-v0.21.5-social*.patch text eol=lf
 staging/*social*.sh text eol=lf
 staging/start-chat-agent-low-memory.sh text eol=lf
+patches/hermes-v0.21.5-token.patch text eol=lf
+staging/*token*.py text eol=lf

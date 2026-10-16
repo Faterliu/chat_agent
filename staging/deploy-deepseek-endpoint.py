@@ -20,7 +20,7 @@ HOME = Path('/var/lib/hermes/.hermes')
 REPO = HOME / 'hermes-agent'
 PATTERN = r'^/var/lib/hermes/\.hermes/hermes-agent/venv/bin/python /var/lib/hermes/\.hermes/hermes-agent/hermes gateway run$'
 STARTER = Path('/var/lib/hermes/start-chat-agent.sh')
-MODEL = 'cn:deepseek-v4-flash'
+MODEL = 'cn:deepseek-v4.1-flash'
 BASE = 'https://wb.yinxingye.space/v1'
 
 
@@ -93,8 +93,17 @@ def env_updated(text, name, value):
 
 
 def main():
+    global MODEL
     os.umask(0o077)
-    supplied = json.load(sys.stdin)
+    model_only = sys.argv[1:] == ['--model-only', 'cn:deepseek-v4.1-flash']
+    if model_only:
+        MODEL = sys.argv[2]
+        from dotenv import dotenv_values
+        values = dotenv_values(HOME / '.env')
+        supplied = {'api_key': values.get('DEEPSEEK_API_KEY'), 'base_url': values.get('DEEPSEEK_BASE_URL')}
+    else:
+        assert not sys.argv[1:], '未知维护参数'
+        supplied = json.load(sys.stdin)
     key = supplied['api_key']
     assert supplied['base_url'].rstrip('/') == BASE
     assert key and re.fullmatch(r'[A-Za-z0-9_\-]+', key)
@@ -130,12 +139,16 @@ def main():
     assert yaml.safe_load(new_cfg) == expected, '配置有非目标变更'
     new_env = env_updated(original[1].decode('utf-8'), 'DEEPSEEK_API_KEY', key)
     new_env = env_updated(new_env, 'DEEPSEEK_BASE_URL', BASE)
+    if model_only:
+        assert cfg['model']['base_url'].rstrip('/') == BASE
+        assert new_env.encode('utf-8') == original[1], '仅切换模型时不得修改环境文件'
     from dotenv import dotenv_values
     before_env = dict(dotenv_values(stream=__import__('io').StringIO(original[1].decode('utf-8'))))
     after_env = dict(dotenv_values(stream=__import__('io').StringIO(new_env)))
     before_env.update(DEEPSEEK_API_KEY=key, DEEPSEEK_BASE_URL=BASE)
     assert after_env == before_env, '环境有非目标变更'
-    backup = HOME / 'backups' / ('api-change-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    prefix = 'model-change-' if model_only else 'api-change-'
+    backup = HOME / 'backups' / (prefix + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
     backup.mkdir(mode=0o700)
     for p in paths:
         shutil.copy2(p, backup / p.name)
@@ -157,7 +170,8 @@ def main():
     stop()
     try:
         atomic(paths[0], new_cfg.encode('utf-8'), modes[0])
-        atomic(paths[1], new_env.encode('utf-8'), 0o600)
+        if not model_only:
+            atomic(paths[1], new_env.encode('utf-8'), 0o600)
         start(backup)
         connections(offset)
         sys.path.insert(0, str(REPO))
@@ -191,6 +205,9 @@ def main():
                   'base_url': BASE, 'qq_connected': True, 'weixin_connected': True,
                   'streaming_test_passed': True, 'stream_and_route_verification_seconds': round(time.monotonic() - began, 2),
                   'rss_mib': round(int(status['VmRSS'].split()[0]) / 1024, 2), 'source_unchanged': True}
+        if model_only:
+            assert paths[1].read_bytes() == original[1]
+            result.update(model_only=True, env_unchanged=True)
         (backup / 'result.json').write_text(json.dumps(result), encoding='utf-8')
         print(json.dumps(result), flush=True)
     except BaseException:
