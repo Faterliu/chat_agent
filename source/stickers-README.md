@@ -1,0 +1,37 @@
+# 表情包素材库
+
+目录：`HERMES_HOME/stickers/`（0700）。索引：同目录 `manifest.json`（0600）。
+
+## 加一张表情包
+
+1. 放图：`stickers/packs/<主题>/<名字>.png|jpg|jpeg|gif|webp`
+2. 在 `manifest.json` 的 `stickers` 数组里加一条：
+
+   ```json
+   {"id": "doro_hello", "file": "packs/doro/hello.png", "scene": "打招呼、卖萌"}
+   ```
+
+3. 新会话生效：发 `/new` 或重启网关。工具定义（枚举 + 说明）每次构建时现读 manifest，
+   **不需要改代码、不需要重新部署**。
+
+## 硬性限制
+
+- 单张 1 字节～2 MiB；只认 png / jpg / jpeg / gif / webp。
+- 文件名与目录名不要带空格——`MEDIA:` 协议按空白切分路径，带空格会被截断并丢弃。
+- `file` 必须是 `stickers/` 内的相对路径；`../` 越界、缺失、超限的条目会被静默忽略。
+- 索引损坏或库为空时，工具对模型完全不可见，不占 token。
+
+## 行为约定（已写进工具说明）
+
+只在对方情绪明显、适合点缀时发；一轮最多一张，不连发；严肃话题、故障提示、长回答不用；
+发图时正文照常写完，不描述图片内容。进程内还有 8 秒全局冷却。
+
+## 生效范围
+
+当前只加进 `platform_toolsets.qqbot`，微信未开。QQ 群聊还需要单独验收被动回复补丁
+（`_send_media` 回填 `msg_id`）和刷屏观感，验收通过后再决定是否在群里开放。
+
+## 撤回
+
+删掉 `manifest.json` 里的条目即可让该图下线；整库清空等于关闭功能。代码层回退见
+`documents/DEPLOYMENT_NOTES.md`「表情包（2026-10-20）」。

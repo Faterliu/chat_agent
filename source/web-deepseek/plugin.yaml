@@ -1,0 +1,7 @@
+name: web-deepseek
+version: 1.0.0
+description: "DeepSeek Search API — one direct HTTP request per search, no auxiliary model turn. Requires DEEPSEEK_SEARCH_API_KEY; search only (no page fetch)."
+author: HermesAgent-local
+kind: backend
+provides_web_providers:
+  - deepseek

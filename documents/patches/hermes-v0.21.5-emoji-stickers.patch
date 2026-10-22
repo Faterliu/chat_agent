@@ -1,0 +1,33 @@
+--- a/gateway/platforms/base.py
++++ b/gateway/platforms/base.py
+@@ -4262,6 +4262,15 @@
+         supplies the source and the ledger identity (``ledger_message_id`` or ``message_id``).
+         Returns the result with the adapter that sent it: that adapter owns ``result.message_id``
+         (an ephemeral delete must go to the same transport)."""
++        # [LOCAL PATCH] 强情绪 emoji → 表情包：先把可映射的 emoji 摘出正文，等文字发完再补一张图。
++        _emoji_sticker_ids: list = []
++        if not is_ephemeral_response:
++            try:
++                from gateway import emoji_stickers as _emoji_stickers
++
++                text_content, _emoji_sticker_ids = _emoji_stickers.prepare(text_content, self.platform)
++            except Exception:
++                _emoji_sticker_ids = []
+         delivery_adapter = self._final_delivery_adapter(event.source)
+         logger.info("[%s] Sending response (%d chars) to %s", delivery_adapter.name,
+                     len(text_content), event.source.chat_id)
+@@ -4273,6 +4282,14 @@
+             chat_id=event.source.chat_id, content=text_content, reply_to=reply_to, metadata=metadata)
+         if obligation_id is not None:
+             await self._finalize_delivery_obligation(obligation_id, result, event, delivery_adapter)
++        if _emoji_sticker_ids:
++            try:
++                from gateway import emoji_stickers as _emoji_stickers
++
++                await _emoji_stickers.deliver(
++                    delivery_adapter, event, _emoji_sticker_ids, metadata, reply_to=reply_to)
++            except Exception:
++                logger.warning("[%s] emoji sticker delivery failed", delivery_adapter.name, exc_info=True)
+         return result, delivery_adapter
+ 
+     async def _release_turn_marker(self, event: MessageEvent) -> None:
