@@ -26,8 +26,8 @@ Deliberately narrow
 * Syntax-checked before writing, and the anchor must appear exactly once.
 
 Provenance: applied by explicit operator decision (option "打一行核心补丁"). This is a
-core-file modification and therefore a documented deviation from AGENTS.md §24.5-24.6;
-see documents/DEPLOYMENT_NOTES.md §11.17 / documents/TASK.md UNRESOLVED-1.
+core-file modification. Preserve this deployed fix during maintenance;
+see AGENTS.md for the current patch and rollback rules.
 """
 
 from __future__ import annotations

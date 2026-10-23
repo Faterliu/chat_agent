@@ -1,77 +1,48 @@
 # AGENTS.md
 
-操作约束与当前事实的**浓缩版**。细节、证据、备份与回滚步骤在 `documents/DEPLOYMENT_NOTES.md`（下称「部署记录」），任务与待办在 `documents/TASK.md`，微信差距在 `documents/WECHAT_BACKLOG.md`，emoji 映射清单在 `documents/EMOJI_LIST.md`。历史计划与现状冲突时，以已验证的运行事实为准。
+本文件统一记录运行现状、操作约束与微信差距；只维护当前结论，不追加部署流水账。待办见 `documents/TASK.md`，映射参考见 `documents/EMOJI_LIST.md`，实际状态以服务器核验为准。整理日期：2026-10-23，最近运行核验：2026-10-22。
 
-## 一、项目与现状
+## 运行环境
 
-- 位置：共享 Ubuntu 24.04（`8.148.73.94`，2 vCPU／约 1.6 GiB／2 GiB swap，还跑着网站等业务）；本仓库是 `C:\file\HermesAgent`，本机不是目标服务器。
-- Hermes 固定 **v0.21.5**（提交 `f97608f178d1ffeca59860195ab7da295f7c8e5f`）。主模型 `cn:deepseek-v4.1-flash`，经 `https://wb.yinxingye.space/v1` 中转；备用 `kldai/gpt-6-sol` 曾不稳定。
-- 已上线并真机验收：QQ 私聊／群 @、微信授权账号私聊、用户隔离、受限提醒、主动关心与生日、远程视觉、表情包与 emoji→表情包映射。
-- 未验收：TTS、媒体清理、限流、systemd 自恢复。`stt.enabled=false`，微信群聊未开放。
-- 当前只有一个**手动启动**的网关，无自动重启；对外按「单个手动网关、多模态尚未全部验收」表述，不能宣称完整 24×7 服务。
+- 本地仓库 `C:\file\HermesAgent`；目标为共享 Ubuntu 24.04：`8.148.73.94`，2 vCPU、约1.6 GiB内存、2 GiB swap，另有网站业务。
+- Hermes固定 **v0.21.5**，提交 `f97608f178d1ffeca59860195ab7da295f7c8e5f`。主模型 `cn:deepseek-v4.1-flash`，中转 `https://wb.yinxingye.space/v1`；备用模型曾不稳定。
+- **QQ与微信共用一个手动网关**，没有systemd自恢复，不宣称24×7。QQ开放白名单私聊和群@；微信仅授权账号私聊，用户明确暂不加群。
+- 远程 `HERMES_HOME=/var/lib/hermes/.hermes`（下称HOME），源码 `HOME/hermes-agent`，Python `HOME/hermes-agent/venv/bin/python`；配置/凭据为 `HOME/config.yaml`、`.env`，日志 `HOME/logs/agent.log`。
+- 通过 `/var/lib/hermes/start-chat-agent.sh` 启动；它在Python启动前设置 `MALLOC_ARENA_MAX=2`、`MALLOC_TRIM_THRESHOLD_=131072`，调用 `/var/lib/hermes/.local/bin/hermes`。不要直接跑源码目录的 `./hermes`，不要用.env代替启动环境。保留现有清华PyPI镜像环境。
+- 根目录只放AGENTS与README；文档/补丁/备份在 `documents/`，脚本/测试在 `scripts/`，部署源码在 `source/`，表情包原图在 `doro/doro/`、总表与脚本在 `doro/`。`documents/server-mirror/` 可能滞后。
 
-## 二、仓库目录
+## 安全与数据隔离
 
-根目录只放 `AGENTS.md` 与 `README.md`，其余按用途分四个目录；新素材／脚本按此归类，不要再往根目录堆。
+- **不得运行 `hermes update`、重跑首次部署脚本、覆盖已有修改、启动第二个生产网关或干扰其他业务。**升级/重装须先核对固定提交和全部已部署补丁，尤其QQ群被动回复、用户隔离、提醒、social、token及媒体补丁；文件在 `documents/patches/`。
+- 工具集：CLI仅 `memory/session_search/tts/vision`；QQ与微信同为 `cronjob/memory/search/session_search/social/sticker/tts/vision`。库空时隐藏sticker。
+- 不擅自向模型开放终端、代码执行、任意文件读写、浏览器、MCP、子代理、通用自主Cron、图像生成、ACP或本地模型。检索仅 `web_search`，不开放 `web_extract`。主机定时任务仅用于维护。
+- 白名单扩大前先完成每用户限流及消息/媒体上限验证。密钥只存受限配置/.env，不打印、不入Git或日志；长期记忆不存凭据、验证码、证件或金融信息。
+- 身份由可信网关提供 `(platform,user_id)`，须与SQLite会话的 `source/user_id/chat_type/chat_id` 一致；缺失或不符就拒绝，**绝不回退全局数据**，QQ与微信不合并身份。
+- 记忆位于 `HOME/memories/users/<platform>/<用户哈希>/{private,groups}/`。私聊读写本人private，可按需只读本人groups；群聊只读写本人共用groups，不能读private。审批与缓存同样隔离，`group_sessions_per_user=true`。
+- 私聊可检索同平台本人私聊及群聊；群聊仅检索本人在当前群的历史。搜索、回退SQL、浏览、标题、直接读取、滚动、锚点和压缩关联均须校验归属，无权限统一显示未找到。部署前发现未归属记忆/审批须查清，不得擅自分配。
+- 会话上下文来自服务器 `HOME/state.db`，不读取手机/电脑聊天历史。两库state.db/social.db使用DELETE日志模式；不要擅自替换共享主机SQLite。
 
-| 目录 | 内容 |
-| --- | --- |
-| `documents/` | `TASK.md`、`DEPLOYMENT_NOTES.md`、`WECHAT_BACKLOG.md`、`EMOJI_LIST.md`；含 `patches/`、`backups/`、`server-mirror/` |
-| `scripts/` | 部署／构建／核对／运维脚本；`scripts/test/` 是可重跑的回归（贴纸 19 项、emoji 映射 15 项、生产配置 22 项、空库隐藏、媒体白名单、故障文案） |
-| `source/` | 部署到网关的代码本体与素材：`sticker_tool.py`、`emoji_stickers.py`、`persona_errors.py`、`web-deepseek/`、`personas/xiaoyun.json`，以及 `social-work/`、`token-work/`、`config-fragments/` |
-| `doro/` | 表情包原图与自助脚本，本地私有、未纳入版本库（`.gitignore` 排除） |
+## 已有功能与维护入口
 
-## 三、路径与补丁
+- **人格与搜索**：`source/personas/xiaoyun.json` 是人格源，真正生效的是 `config.yaml` 的 `agent.personalities.xiaoyun.system_prompt`，服务器同名JSON镜像不生效。只用 `scripts/deploy-persona-config.py` 导入，热加载无需重启。保持实时信息先搜索、旧事先检索、称呼/长期偏好及时建档；QQ/微信真实联网问答均已通过。
+- **提醒与关心**：仅本人私聊、平台分别管理。提醒只允许30天内一次性固定文字，每人每平台20条；到点不调用模型。social只存事项摘要，普通关心48小时最多一次、23–08点静默、近期聊天延后，不回应不追发；生日须明确订阅，仅存月日。不确定投递记unknown且不自动重发；存储失败写 `social.pause`，人工核查后解除。
+- **视觉与媒体**：辅助视觉走远程API，入站图片生成描述写入历史并参与后续上下文，原图可由 `vision_analyze` 复看。STT关闭，未来只能用远程中文转录，不启本地Whisper。共享入站上限128 MiB，不代表每用户限额。
+- **图片清理**：`HOME/cache/images/` 达50张删最旧20张；每月北京时间首次空闲维护保留最新20张。忙碌或目标图片不足5分钟则延后、每分钟重试，50张是清理触发值而非硬上传限制；不删除表情包。其他媒体有上游每小时24小时过期规则，实际边界待验收。
+- **表情包**：42张、139条emoji映射，QQ/微信授权私聊共用。唯一编辑表为 `doro/manifest.txt`：`id | 画面 | 适用场景 | 已映射`；多个完整emoji空格分隔，行序即优先级，同类可多对一，不能重复或互为子串。管理脚本只有两个：新图先 `rename-stickers.py --apply` 编号，补表后 `sync-stickers.py --apply` 一次推完（图片→manifest.json→映射，按这个顺序，映射会核 id）；只改映射用 `--only mapping`，只动图用 `--only images`，`--list` 只读核对、默认不带 `--apply` 就是预览。
+- `send_sticker(sticker_id)` 只读 `HOME/stickers/manifest.json`，单图1 B–2 MiB，路径无空白；素材目录须在 `gateway.media_delivery_allow_dirs`。自动配图仅短回复（≤3行、≤200字、无代码块），文字后1.2秒补一张，映射侧300秒冷却，与工具共享状态。配置热加载；旧会话工具枚举未更新时才用 `/new`。
+- 保持推理medium、压缩阈值64000 token；表情包场景说明每轮随schema发送，新增时保持简短。关闭聊天进度回执；`display.persona_error_voice=true` 提供人格化故障提示。
 
-- 远程 `HERMES_HOME=/var/lib/hermes/.hermes`，源码 `/var/lib/hermes/.hermes/hermes-agent`，启动器 `/var/lib/hermes/.local/bin/hermes`，日志 `HERMES_HOME/logs/agent.log`。**不要**直接跑源码目录的 `./hermes`，也不要把启动器参数写进 `.env` 代替启动器（`/var/lib/hermes/start-chat-agent.sh` 在 Python 启动前设 `MALLOC_ARENA_MAX=2`、`MALLOC_TRIM_THRESHOLD_=131072`）。
-- **不得运行 `hermes update`**。升级或重装前后核对固定提交、工作树，以及：QQ 群被动回复补丁（在 `gateway/platforms/qqbot/adapter.py`）、用户隔离补丁 `documents/patches/hermes-v0.21.5-user-scope.patch`（sha256 `db2f6f68328faf55a94f026a7eb727875a9714aab5f369025a011fc57117cd7d`）、token 精简补丁（sha256 `e4cd9c316eb97d7f4415b7ab78f93b12a18bc4cea6e7a2e1e02040bd0b2b3888`）。补丁均已部署，**首次部署脚本不得重跑**；升级前先反向卸载，回滚时保留 QQ 补丁。
-- 本地 `documents/server-mirror/` 可能滞后于服务器；人格源以 `source/personas/xiaoyun.json` 为准，**运行时真正生效的是 `HERMES_HOME/config.yaml` 的 `agent.personalities.xiaoyun.system_prompt`**，`/var/lib/hermes/xiaoyun.json` 只是镜像副本，改它无效（v1.2.4 曾因此让【联网搜索】一直没上线）。
+## 微信差距与待验收
 
-## 四、用户数据隔离（硬约束）
+- **GIF动画未解决**：QQ同图会动，微信IMAGE仅静态；文件附件打开能动，但用户明确拒绝附件替代。当前未找到公开且验证可用的原生动画方式；不重复发图试探、不擅自换接入方案，也不宣称已全部对齐。
+- 微信已有2000字分块、部分短句拆气泡；文字和图片分开发送。入站引用可解析，`context_token` 仅代表回复会话关联，不证明客户端显示引用气泡。
+- 共同待验收：TTS/远程STT、每用户消息/图片/搜索限流、其他媒体与日志容量、真实跨月图片清理、第二用户/第二群隔离、关心长期投递及微信会话过期、单网关自动恢复。微信另需观察入站贴纸/引用图片、输入状态和可见引用样式。
 
-- 身份是网关提供的 **`(platform, user_id)`**，必须与 SQLite 当前会话行的 `source`、`user_id`、`chat_type`、`chat_id` 一致；缺失或不一致就拒绝访问记忆与检索，**绝不回退全局数据**。QQ 与微信不合并身份。
-- 记忆目录 `HERMES_HOME/memories/users/<platform>/<用户哈希>/{private,groups}/`：
+## 修改与验证
 
-  | 场景 | 长期记忆 | `session_search` |
-  | --- | --- | --- |
-  | 私聊 | 该用户的 `private/USER.md`、`MEMORY.md` | 同平台该用户的私聊和群聊历史 |
-  | 群聊 | 该用户所有群共用的 `groups/USER.md`、`MEMORY.md` | 仅该用户在当前群的历史 |
-
-- 私聊只可**只读**读群记忆（`memory(action="read", target="group")`），群聊读不到私聊记忆；`/memory` 待审批记录按用户与场景隔离；`group_sessions_per_user=true`，机器人看不到群内他人原始消息。
-- 改 `session_search` 时，全文／中文／回退 SQL、浏览、标题、直接读取、滚动、消息锚点、压缩会话关联都要在返回前校验归属；无权限目标统一显示未找到。
-- 部署前核查未归属记忆，出现就查清归属，不得擅自分配。
-
-## 五、安全与资源边界
-
-- 工具集：`cli` 仅 `memory`、`session_search`、`tts`、`vision`；`qqbot` 为 `cronjob`、`memory`、`search`、`session_search`、`social`、`sticker`、`tts`、`vision`（库空时 sticker 自动隐藏）；`weixin` 同 qqbot 但**无 `sticker`**。
-- 不得擅自启用：`web_extract`、浏览器、终端／Shell、任意文件读写、代码执行、MCP、通用自主 Cron、子代理／委派、图像生成、ACP、本地 LLM／视觉／Whisper。主机级定时器只许做日志／媒体维护，不能暴露给模型。
-- QQ／微信只向白名单开放；扩大访问前先验每用户限流与消息／媒体大小上限。密钥只进受限配置／`.env`，不进 Git、日志、示例输出；长期记忆不存凭据、验证码、证件、金融信息。
-- 重计算走远程 API；STT 要用远程中文转录，不触发本地 faster-whisper；媒体限量、短期留存、待清理（`cache/images/` 尚未做清理与限流）。
-- 共享主机：不要停别人的业务、不要起第二个生产网关、不要把整机重启当常规测试。整机普通聊天低于 900 MB、短时媒体低于 1.1 GB，约 1.3 GB 或持续换入须调查（只看网关 RSS 不够）。
-
-## 六、修改流程
-
-1. 先读本文件、`documents/TASK.md` 相关任务、部署记录最新章节；核实目标主机、提交、配置、既有补丁与工作树。
-2. 优先改配置或既有扩展点。源码变更必须有适用提交、补丁、备份与回滚步骤。生产部署前备份数据库／配置／源码，停原网关后只启**一个**网关，验证连接、真实回复、日志与资源，失败即回滚；不得覆盖用户已有修改。
-3. 隔离测试用临时 `HERMES_HOME` 与合成 A／B 用户、两个 QQ 群、微信、`/new`、压缩会话，不连真实模型提供方；Hermes 自带测试走 `scripts/run_tests.sh`，生产 venv 缺 pytest 时另建隔离环境；测试进程拿到结果立即停。
-4. 全部文本 UTF-8、保留中文；Python 读写显式 `encoding="utf-8"`；中文文件不用 `echo`／`type` 重定向改；PowerShell 取行用 `Get-Content -Encoding utf8 -TotalCount N | Select-Object -Last M`；语法检查用 `compile(Path(...).read_text(encoding='utf-8'), ..., 'exec')`，避免生成 `__pycache__`。
-5. 把验证证据写进部署记录，未解决事项写进 `documents/TASK.md`；区分「缺工具／网络／权限」与「代码错误」。
-
-## 七、功能现状与硬规则
-
-- **人格**：`display.personality=xiaoyun`，v1.2.6（system_prompt 2396 字符），全部注入集中在 system_prompt，tone／style 留空。三段工具规则：实时信息先 `web_search`（不得说“没接上数据”）；提旧事先 `session_search`（没查过不说“没记录”）；首次私聊或得知称呼／长期偏好当场写 `USER.md`（敏感信息不写，对方说不用记就照做）。说话方式：一条消息一件事、最多两条建议、不用列点／总结句、超三行压到三行内（对方要步骤才展开）。部署只用 `scripts/deploy-persona-config.py`（ruamel 往返、仅改目标键、0600），按文件签名热加载、**无需重启**。
-- **提醒**：`cronjob_manage` 仅本人私聊一次性文字提醒，最长 30 天、每平台每人 20 条，按北京时间解析；每次重新校验身份，拒绝群聊／跨用户／跨平台／脚本／模型参数。正文在创建时按人格写好，到点原样发送、不再调模型。用户可说「2 分钟后提醒我喝水」「查看我的提醒」「取消某条提醒」；群提醒与循环提醒未开放。
-- **主动关心与生日**：独立 `social.db`（0600，DELETE 日志），只存简短事项不复制对话，仅本人私聊、两平台分别管理。事件结束 2 小时后（只有日期则次日 18 点）／日常话题 24 小时后提醒，过期 48 小时不补发；每人 48 小时最多一次，23–08 点静默、两小时内有聊天则延后，不回应不追发。生日须明确订阅，只存月日、默认 09:00。候选静默维护不播报；投递不确定记 unknown，绝不自动重发；存储失败写 `social.pause` 待人工解除。用户可说「查看待跟进事项」「这件事已经结束」「不要主动关心我」「我的生日是公历 5 月 20 日……」。
-- **图片识别**：纯配置 `auxiliary.vision`（同模型、同中转，`key_env DEEPSEEK_API_KEY`）。主模型判定为文本路由，入站图片由网关生成 2–4 句描述注入上下文（描述是普通历史文本，会随历史重发到压缩阈值），模型也可调 `vision_analyze` 复看。图片经中转发给提供方；每用户张数／频率与 `cache/images/` 清理未做。
-- **联网搜索**：`plugins/web/deepseek/`（只检索，无 `/fetch`，故 `web_extract`／`web`／`browser` 关闭），`web.backend=deepseek`，密钥只在 `.env`，插件只记结果条数不记检索词。缺每用户检索次数上限，真实带搜索问答尚未验收。
-- **故障文案**：`display.persona_error_voice: true` 时限流／鉴权／策略拒绝／断连／超时等提示改为云白口吻；关闭开关即逐条回退英文原文。
-- **表情包**：`send_sticker(id)` 只从 `HERMES_HOME/stickers/manifest.json` 取图（png/jpg/jpeg/gif/webp，1 B–2 MiB，路径不得带空白），返回 `MEDIA:<绝对路径>` 由既有出站管线投递；库空则工具对模型不可见。素材目录必须留在 `gateway.media_delivery_allow_dirs`（`/var/lib` 在 MEDIA 禁用前缀里）。仅 QQ 私聊，8 秒全局冷却。
-- **emoji→表情包映射**：`gateway/emoji_stickers.py` 挂在 `send_final_ledgered`，短回复（≤3 行、≤200 字、无代码块）里把已映射 emoji 摘出正文，文字发完停 1.2 秒补一张图；一回合最多一张，与 `send_sticker` 共用冷却（映射侧 300 秒）。**映射表顺序＝优先级**，键是子串匹配，不能写半截 emoji；以 `doro/mapping.txt` 为准。加图与改映射全在 `doro/`：改 `mapping.txt` → `python doro\apply-mapping.py`（校验→备份→写入→逐条自检→失败回滚）；新图丢进去 → `rename-stickers.py --apply` → 在 `manifest.txt` 补场景行 → `sync-stickers.py --apply`（sha256 差异上传、重建 manifest、`load_manifest()` 复核）。不需要重启，老会话可能仍用旧 schema，`/new` 即可。
-- **预算**：`compression.threshold_tokens=64000`，推理 `medium`；工具说明与动态尾部已精简（218 项回归、合成样本 −12.94%）。表情包场景表随 schema 每轮发送，条目越多越贵（18 张约 529 字符）；低内存启动器下生产聊天 RSS 约 226 MiB。
-
-## 八、踩过的坑
-
-- 往 `send_final_ledgered` 这类热点函数插代码，锚点必须核对整段：首版脚本把 `delivery_adapter = ...` 赋值行一起替换掉，功能静默失效；改完要 `sed` 复核整段。
-- 媒体改动必须真机验收：隔离测试素材放 `/tmp` 绕过了 `/var/lib` 禁用前缀，掩盖了投递被静默丢弃的问题。
-- 批量改路径要区分「本仓库路径」与「服务器路径」：`HERMES_HOME/backups/…`、git ref 名、服务器配置镜像都不该被加仓库前缀。
-- 配置类改动多在下一轮生效；只有**素材索引与工具枚举**变更才需要 `/new`。先分清是哪一类，再决定要不要重启或新会话。
+1. 先读本文件及TASK相关项，核对目标主机、固定提交、工作树、配置和已有补丁。优先配置/扩展点；源码改动必须提供适用版本、补丁、备份与回滚方式。
+2. 生产变更前受限备份配置、SQLite（用backup接口）和相关源码，目录0700、文件0600；记录目标字段、哈希和结果到该次备份目录。配置/素材按实际热加载能力处理；需要重启时先停旧网关，再经低内存启动器只启一个，验证连接、真实回复、日志和整机资源，失败回滚。
+3. 回滚只恢复本次相关字段/源码，保留QQ补丁、用户隔离、当前凭据、数据库及提醒任务；不得整份覆盖旧业务快照。反向补丁先 `git apply -R --check`，冲突时人工审查，不强套。备份在服务器 `HOME/backups/`，本地补丁与元数据在 `documents/patches/`。
+4. 隔离测试使用临时HOME和合成用户/群，不连真实提供方；Hermes测试走 `scripts/run_tests.sh`，缺pytest另建隔离环境。媒体变更须检查真实部署路径及平台效果，API accepted不等于手机端验收。结束后清理本次临时进程/文件，不停无关进程。
+5. 使用匹配实际Shell的命令；检索优先rg，远程缺少时用grep/Python。中文文本读写显式UTF-8，勿盲目转换编码；PowerShell取行用 `Get-Content -Encoding utf8 -TotalCount END | Select-Object -Last COUNT`；Python语法检查用compile，不写字节码缓存。区分环境权限/工具缺失与代码错误。
+6. 共享主机普通聊天内存目标低于900 MB、短时媒体低于1.1 GB，接近1.3 GB或持续换入须调查整机；不以整机重启作常规测试。修改后同步本文件现状及TASK待办，证据保存在对应备份/测试结果中。

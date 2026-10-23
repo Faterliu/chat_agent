@@ -1,0 +1,18 @@
+{
+  "commit": "f97608f178d1ffeca59860195ab7da295f7c8e5f",
+  "files": {
+    "gateway/platforms/base.py": {
+      "before": "110da690297c8fc0df7016c1b85a2a99f91dbdd8b541b5257dc720af3cef8b5f",
+      "after": "7faca845b3c83d0bee56baa2791a5e4adb6de71829aed2f26a5fc2705aa193f7"
+    },
+    "gateway/run.py": {
+      "before": "90cb8f19e70aadbcd2093f1581304251563d14a6c66e37b09c0ae6ce915b4282",
+      "after": "9cfd5ba1591332d66f4deb86dbc9ea06a4b215e349ac62d6aa08ab86e12d5fa7"
+    },
+    "gateway/image_cache_policy.py": {
+      "before": null,
+      "after": "e767c3a7bcffef4a61d17919dbf898daa79edf2ef81869d410ee38f8cad6d5a0"
+    }
+  },
+  "patch_sha256": "7af3abf833f5907e1a09fe8c153bd2e4fb13ab185ece8cd697da645a689ab04f"
+}

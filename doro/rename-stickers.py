@@ -12,12 +12,12 @@
 安全性：
   · 两阶段改名（先改成临时名再改成目标名），不会因为目标名被占用而丢文件；
   · 每次真正改名都写一份 rename-log-<时间>.txt，里面有反向改名清单；
-  · 若数字发生变化，同目录的 mapping.txt（emoji → id）和 manifest.txt（id | 文件名 | 场景）
-    会自动跟着改引用，保持“哪个 emoji／说明对应哪张图”不变，并各留一份 .bak-<时间> 备份。
+  · 若数字发生变化，同目录上一层的 manifest.txt（id | 画面 | 适用场景 | 已映射）会自动跟着改
+    引用，保持“哪个 emoji／说明对应哪张图”不变，并留一份 .bak-<时间> 备份。
     不想动就加 --no-txt-rewrite。按 token 精确匹配，doro_1 不会误伤 doro_14。
 
-注意：这里只改本地文件。要让新编号在线上生效，接着跑 sync-stickers.py --apply，
-      再跑 apply-mapping.py（顺序反了会因为 id 不存在被拦下）。
+注意：这里只改本地文件。要让新编号在线上生效，接着跑 sync-stickers.py --apply
+      （图片、manifest 与映射一次推完）。
 """
 
 import argparse
@@ -144,7 +144,8 @@ def rewrite_txt(path: Path, renames: dict[str, str]) -> list[str]:
 def main() -> int:
     setup_console()
     ap = argparse.ArgumentParser(description="把 doro 目录里的表情包重命名成 doro_1..doro_N")
-    ap.add_argument("--dir", default=str(HERE), help="表情包目录，默认脚本所在目录")
+    ap.add_argument("--dir", default=str(HERE / "doro"), help="图片目录，默认脚本目录下的 doro/")
+    ap.add_argument("--manifest", default="", help="总表路径，默认图片目录上一层的 manifest.txt")
     ap.add_argument("--apply", "-a", action="store_true", help="真正改名（默认只预览）")
     ap.add_argument("cmd", nargs="?", choices=("apply", "preview"), default=None,
                     help="也可以直接写 apply（等价于 --apply）或 preview")
@@ -152,7 +153,7 @@ def main() -> int:
     ap.add_argument("--order", choices=("number", "name", "mtime"), default="number")
     ap.add_argument("--no-txt-rewrite", "--no-mapping-rewrite", dest="no_txt_rewrite",
                     action="store_true",
-                    help="不要自动改 mapping.txt / manifest.txt 里的 id 与文件名")
+                    help="不要自动改 manifest.txt 里的 id 与文件名")
     args = ap.parse_args()
 
     folder = Path(args.dir).resolve()
@@ -191,7 +192,8 @@ def main() -> int:
         return 3
 
     renames = {src.stem: dst.stem for src, dst in pairs}
-    txt_files = [p for p in (folder / "mapping.txt", folder / "manifest.txt") if p.is_file()]
+    table = Path(args.manifest).resolve() if args.manifest else folder.parent / "manifest.txt"
+    txt_files = [table] if table.is_file() else []
     previews: dict[Path, list[str]] = {}
     if not args.no_txt_rewrite:
         for p in txt_files:
@@ -220,7 +222,8 @@ def main() -> int:
     for tmp, dst in tmp_pairs:
         tmp.rename(dst)
 
-    log = folder / f"rename-log-{ts}.txt"
+    log_dir = table.parent if table.is_file() else folder
+    log = log_dir / f"rename-log-{ts}.txt"
     body = [f"# {ts} 重命名记录（排序：{args.order}）", "", "## 正向", ""]
     body += [f"{src.name} -> {dst.name}" for src, dst in pairs]
     body += ["", "## 反向（按此顺序执行即可还原）", ""]
@@ -238,8 +241,7 @@ def main() -> int:
 
     print()
     print("提醒：这只是本地文件。要让新编号在线上生效，接着跑")
-    print("      python doro\\sync-stickers.py --apply   （上传新图 + 重建 manifest）")
-    print("      再跑 python doro\\apply-mapping.py      （把映射写进配置）")
+    print("      python doro\\sync-stickers.py --apply   （图片 + manifest + 映射一次推完）")
     return 0
 
 

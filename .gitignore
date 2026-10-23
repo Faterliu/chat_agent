@@ -1,4 +1,9 @@
 # agent工作文件夹
 .workbuddy
 .deep-copilot
-/doro/*.gif
+# 表情包原图（脚本与 manifest.txt 仍纳入版本库）
+/doro/doro/
+
+# Python 字节码缓存：import 时自动生成，删了会自动重建，不要提交
+__pycache__/
+*.pyc

@@ -53,7 +53,7 @@ MANIFEST: list[str] = [
     "/etc/logrotate.d/hermes",
     # helper scripts installed on the host
     "/usr/local/bin/hermes-media-cleanup.sh",
-    # --- real Hermes artefacts, confirmed on-host in Phase 3.3 (see documents/DEPLOYMENT_NOTES.md 10) ---
+    # --- real Hermes artefacts; current paths and maintenance rules are in AGENTS.md ---
     # HERMES_HOME is /var/lib/hermes/.hermes for the unprivileged hermes account.
     "/var/lib/hermes/.hermes/config.yaml",
     "/var/lib/hermes/.hermes/SOUL.md",

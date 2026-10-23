@@ -2,11 +2,11 @@
 
 基于 Hermes Agent 的轻量聊天项目，运行在共享 Ubuntu 服务器上。模型推理走远程 API，会话存在 SQLite，长期记忆按用户隔离。Hermes 主程序在服务器上，本仓库只保存部署文档、补丁和辅助脚本。
 
-一句话现状：Hermes 固定 v0.21.5，QQ／微信各接一个手动网关；用户隔离、受限提醒、主动关心与生日、图片识别、表情包与 emoji 映射已上线，TTS、媒体清理、限流和 systemd 自恢复尚未验收。
+一句话现状：Hermes 固定 v0.21.5，QQ／微信共用一个手动网关；用户隔离、受限提醒、主动关心与生日、图片识别、表情包与 emoji 映射已上线，TTS、媒体清理、限流和 systemd 自恢复尚未验收。
 
-- 现状细节、安全边界、数据边界、仓库目录、内存与 token 记录：[AGENTS.md](AGENTS.md)
-- 任务与待办、部署证据与回滚：[documents/TASK.md](documents/TASK.md)、[documents/DEPLOYMENT_NOTES.md](documents/DEPLOYMENT_NOTES.md)
-- 微信相对 QQ 的差距、emoji 映射清单：[documents/WECHAT_BACKLOG.md](documents/WECHAT_BACKLOG.md)、[documents/EMOJI_LIST.md](documents/EMOJI_LIST.md)
+- 运行现状、操作约束、微信差距与维护流程：[AGENTS.md](AGENTS.md)
+- 任务与待办：[documents/TASK.md](documents/TASK.md)
+- emoji 映射参考：[documents/EMOJI_LIST.md](documents/EMOJI_LIST.md)
 
 # 更新记录
 [v1.0.0] 2026-10-08
@@ -19,7 +19,7 @@
 [v1.0.2] 2026-10-22
 1. 添加表情包映射。
 2. 长对话裁剪设置。
-3. 文件整理：脚本进 `scripts/`（测试在 `scripts/test/`）、源码镜像进 `source/`、文档与补丁备份进 `documents/`。
+3. 文件整理：脚本进 `scripts/`、源码镜像进 `source/`、文档与补丁备份进 `documents/`。
 4. 说明合并：现状、数据边界、目录、内存、token 归入 `AGENTS.md`，本文件只留项目说明与更新记录。
 
 

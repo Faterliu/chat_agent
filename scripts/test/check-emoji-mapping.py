@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""生产配置下核对 emoji → 表情包 映射（第二批 9 条追加后共 15 条）。
+"""生产配置下核对 QQ／微信共用的 emoji → 表情包映射。
 
 只读：调用真实 `gateway.emoji_stickers.prepare()`，不发消息、不连平台。
 运行（服务器上，hermes 用户）：
@@ -41,18 +41,22 @@ CASES = [
     # 多个已映射 emoji：只补一张，取映射表里靠前的（😪 在 😡 之前）
     ("又困又气\U0001F62A\U0001F621", "qqbot", "又困又气", ["doro_7"]),
     # 未映射 emoji 原样保留
-    ("好吃\U0001F44D\U0001F602", "qqbot", "好吃\U0001F44D\U0001F602", []),
+    ("收到\U0001F44D\u2705", "qqbot", "收到\U0001F44D\u2705", []),
     # 长回复 / 多行不动
     ("第一行\U0001F624\n第二行\n第三行\n第四行", "qqbot",
      "第一行\U0001F624\n第二行\n第三行\n第四行", []),
-    # 微信不生效
-    ("气死了\U0001F624", "weixin", "气死了\U0001F624", []),
+    # 未开放平台仍不生效
+    ("气死了\U0001F624", "cli", "气死了\U0001F624", []),
     # 纯 emoji 不发空消息
     ("\U0001F624", "qqbot", "\U0001F624", []),
     # 代码块不动
     ("看这段\n```\nprint('\U0001F624')\n```", "qqbot",
      "看这段\n```\nprint('\U0001F624')\n```", []),
 ]
+
+# 微信与 QQ 使用同一套映射、优先级和短回复规则。
+CASES += [(text, "weixin", want_text, want_ids)
+          for text, platform, want_text, want_ids in list(CASES) if platform == "qqbot"]
 
 
 def main() -> int:
@@ -65,9 +69,18 @@ def main() -> int:
     print("mapping:", len(mapping), "entries")
     for k, v in mapping.items():
         print("  U+%04X %s -> %s" % (ord(k[0]) if k else 0, k, v))
-    for k in mapping:
-        if len(k) != 1:
-            failures.append(f"key not single codepoint: {k!r}")
+    # 完整 emoji 可以由 VS16 / ZWJ 等多个码点组成，不能按 len(key)==1 拒绝。
+    # 配置写入端负责完整序列校验；这里查残缺边界、键间包含及实际摘除结果。
+    for key in mapping:
+        if not key or key[0] in "\u200d\ufe0e\ufe0f" or key.endswith("\u200d"):
+            failures.append(f"incomplete emoji key: {key!r}")
+        for other in mapping:
+            if key != other and key in other:
+                failures.append(f"emoji key is a substring of another: {key!r} in {other!r}")
+    # 每个线上键都要在双平台正确摘除，含组合 emoji，且不能残留连接符／变体符。
+    mapping_cases = [("映射核对" + key, platform, "映射核对", [sid])
+                     for key, sid in mapping.items() for platform in ("qqbot", "weixin")]
+    cases = CASES + mapping_cases
 
     manifest = json.loads((HOME / "stickers" / "manifest.json").read_text(encoding="utf-8"))
     files = {s["id"]: s["file"] for s in manifest.get("stickers", [])}
@@ -82,7 +95,7 @@ def main() -> int:
             failures.append(f"{sid} size out of range: {p.stat().st_size}")
     print("mapped sticker ids:", sorted(set(mapping.values())))
 
-    for text, platform, want_text, want_ids in CASES:
+    for text, platform, want_text, want_ids in cases:
         got_text, got_ids = emoji_stickers.prepare(text, platform)
         ok = (got_text == want_text and list(got_ids) == list(want_ids))
         tag = "PASS" if ok else "FAIL"
@@ -96,7 +109,7 @@ def main() -> int:
         for f in failures:
             print(" -", f)
         return 1
-    print(f"ALL PASS ({len(CASES)} cases)")
+    print(f"ALL PASS ({len(cases)} cases)")
     return 0
 
 
