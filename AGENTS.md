@@ -2,6 +2,13 @@
 
 本文件统一记录运行现状、操作约束与微信差距；只维护当前结论，不追加部署流水账。待办见 `documents/TASK.md`，映射参考见 `documents/EMOJI_LIST.md`，实际状态以服务器核验为准。整理日期：2026-10-23，最近运行核验：2026-10-22。
 
+## 要求
+1. 本文档新增内容必须为精简后的内容；
+2. 非必要不新增其他文档；
+3. 运行中的副产物在运行结束后必须清理；
+4. 运行中新增的各种脚本（包括测试脚本）倾向于不保留，除非需长期使用；
+5. 默认不保留回退、backup等内容，除非明确要求；
+
 ## 运行环境
 
 - 本地仓库 `C:\file\HermesAgent`；目标为共享 Ubuntu 24.04：`8.148.73.94`，2 vCPU、约1.6 GiB内存、2 GiB swap，另有网站业务。
@@ -9,11 +16,11 @@
 - **QQ与微信共用一个手动网关**，没有systemd自恢复，不宣称24×7。QQ开放白名单私聊和群@；微信仅授权账号私聊，用户明确暂不加群。
 - 远程 `HERMES_HOME=/var/lib/hermes/.hermes`（下称HOME），源码 `HOME/hermes-agent`，Python `HOME/hermes-agent/venv/bin/python`；配置/凭据为 `HOME/config.yaml`、`.env`，日志 `HOME/logs/agent.log`。
 - 通过 `/var/lib/hermes/start-chat-agent.sh` 启动；它在Python启动前设置 `MALLOC_ARENA_MAX=2`、`MALLOC_TRIM_THRESHOLD_=131072`，调用 `/var/lib/hermes/.local/bin/hermes`。不要直接跑源码目录的 `./hermes`，不要用.env代替启动环境。保留现有清华PyPI镜像环境。
-- 根目录只放AGENTS与README；文档/补丁/备份在 `documents/`，脚本/测试在 `scripts/`，部署源码在 `source/`，表情包原图在 `doro/doro/`、总表与脚本在 `doro/`。`documents/server-mirror/` 可能滞后。
+- 根目录只放AGENTS与README；`documents/` 放文档与服务器快照（`server-mirror/` 可能滞后）；`scripts/` 只留长期用的三个脚本（`deploy-persona-config.py` 导入人格、`gen-emoji-list.py` 生成 emoji 清单、`sync_from_server.py` 刷服务器快照），一次性部署脚本用完即删；部署源码在 `source/`，表情包原图在 `doro/doro/`、总表与脚本在 `doro/`。
 
 ## 安全与数据隔离
 
-- **不得运行 `hermes update`、重跑首次部署脚本、覆盖已有修改、启动第二个生产网关或干扰其他业务。**升级/重装须先核对固定提交和全部已部署补丁，尤其QQ群被动回复、用户隔离、提醒、social、token及媒体补丁；文件在 `documents/patches/`。
+- **不得运行 `hermes update`、重跑首次部署脚本、覆盖已有修改、启动第二个生产网关或干扰其他业务。**升级/重装须先核对固定提交与服务器工作树上的全部已部署改动（QQ群被动回复、用户隔离、提醒、social、token、媒体）。本地不留补丁副本，历史版本以远程 git 为准。
 - 工具集：CLI仅 `memory/session_search/tts/vision`；QQ与微信同为 `cronjob/memory/search/session_search/social/sticker/tts/vision`。库空时隐藏sticker。
 - 不擅自向模型开放终端、代码执行、任意文件读写、浏览器、MCP、子代理、通用自主Cron、图像生成、ACP或本地模型。检索仅 `web_search`，不开放 `web_extract`。主机定时任务仅用于维护。
 - 白名单扩大前先完成每用户限流及消息/媒体上限验证。密钥只存受限配置/.env，不打印、不入Git或日志；长期记忆不存凭据、验证码、证件或金融信息。
@@ -40,9 +47,9 @@
 
 ## 修改与验证
 
-1. 先读本文件及TASK相关项，核对目标主机、固定提交、工作树、配置和已有补丁。优先配置/扩展点；源码改动必须提供适用版本、补丁、备份与回滚方式。
+1. 先读本文件及TASK相关项，核对目标主机、固定提交、服务器工作树与配置。优先配置/扩展点；源码改动须说明适用版本与回滚方式。
 2. 生产变更前受限备份配置、SQLite（用backup接口）和相关源码，目录0700、文件0600；记录目标字段、哈希和结果到该次备份目录。配置/素材按实际热加载能力处理；需要重启时先停旧网关，再经低内存启动器只启一个，验证连接、真实回复、日志和整机资源，失败回滚。
-3. 回滚只恢复本次相关字段/源码，保留QQ补丁、用户隔离、当前凭据、数据库及提醒任务；不得整份覆盖旧业务快照。反向补丁先 `git apply -R --check`，冲突时人工审查，不强套。备份在服务器 `HOME/backups/`，本地补丁与元数据在 `documents/patches/`。
-4. 隔离测试使用临时HOME和合成用户/群，不连真实提供方；Hermes测试走 `scripts/run_tests.sh`，缺pytest另建隔离环境。媒体变更须检查真实部署路径及平台效果，API accepted不等于手机端验收。结束后清理本次临时进程/文件，不停无关进程。
+3. 回滚只恢复本次相关字段/源码，保留QQ群补丁、用户隔离、当前凭据、数据库及提醒任务；不得整份覆盖旧业务快照。要旧版本改动从远程 git 历史取，本地不留补丁副本；服务器备份在 `HOME/backups/`。
+4. 隔离测试使用临时HOME和合成用户/群，不连真实提供方；需要跑 Hermes 自带测试时在生产 venv 缺 pytest 的情况下另建隔离环境。媒体变更须检查真实部署路径及平台效果，API accepted不等于手机端验收。结束后清理本次临时进程/文件，不停无关进程。
 5. 使用匹配实际Shell的命令；检索优先rg，远程缺少时用grep/Python。中文文本读写显式UTF-8，勿盲目转换编码；PowerShell取行用 `Get-Content -Encoding utf8 -TotalCount END | Select-Object -Last COUNT`；Python语法检查用compile，不写字节码缓存。区分环境权限/工具缺失与代码错误。
 6. 共享主机普通聊天内存目标低于900 MB、短时媒体低于1.1 GB，接近1.3 GB或持续换入须调查整机；不以整机重启作常规测试。修改后同步本文件现状及TASK待办，证据保存在对应备份/测试结果中。

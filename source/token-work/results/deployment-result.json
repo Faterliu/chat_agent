@@ -1,1 +1,0 @@
-{"backup": "/var/lib/hermes/.hermes/backups/token-optimization-20261009T032942Z", "old_pid": 798937, "pid": 860930, "qq_connected": true, "weixin_connected": true, "compression_threshold_tokens": 64000, "reasoning_effort": "medium", "env_unchanged": true, "rss_mib": 190.16, "patch_sha256": "e4cd9c316eb97d7f4415b7ab78f93b12a18bc4cea6e7a2e1e02040bd0b2b3888"}

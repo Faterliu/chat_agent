@@ -51,7 +51,7 @@
 4. **搜索已验收／其余待验收**：微信真实天气问题已自动调用搜索；已用指定验收文本走真实最终出口成功先文字后自动补图；普通模型聊天长期观察保留。输入状态、入站表情和可见引用样式仍待观察，不以接口成功替代客户端效果。
 5. **用户已排除**：本次先不加微信群。语音转录、每用户限流、自定义统一拆句等两端共同待办，不能写成微信已经补齐的成果。
 
-备份与回退：`/var/lib/hermes/.hermes/backups/weixin-parity-20261022T111430Z/`；部署脚本 `scripts/deploy-weixin-parity.py`。本次只修改 `platform_toolsets.weixin` 和 `display.emoji_stickers.platforms`，人格、映射顺序、密钥、素材索引、源码及既有会话均保留。
+备份与回退：服务器 `/var/lib/hermes/.hermes/backups/weixin-parity-20261022T111430Z/`（部署脚本已按清理规则删除）。本次只修改 `platform_toolsets.weixin` 和 `display.emoji_stickers.platforms`，人格、映射顺序、密钥、素材索引、源码及既有会话均保留。
 
 ## 相关记录
 
