@@ -35,7 +35,7 @@
 - **提醒与关心**：仅本人私聊、平台分别管理。提醒只允许30天内一次性固定文字，每人每平台20条；到点不调用模型。social只存事项摘要，普通关心48小时最多一次、23–08点静默、近期聊天延后，不回应不追发；生日须明确订阅，仅存月日。不确定投递记unknown且不自动重发；存储失败写 `social.pause`，人工核查后解除。
 - **视觉与媒体**：辅助视觉走远程API，入站图片生成描述写入历史并参与后续上下文，原图可由 `vision_analyze` 复看。STT关闭，未来只能用远程中文转录，不启本地Whisper。共享入站上限128 MiB，不代表每用户限额。
 - **图片清理**：`HOME/cache/images/` 达50张删最旧20张；每月北京时间首次空闲维护保留最新20张。忙碌或目标图片不足5分钟则延后、每分钟重试，50张是清理触发值而非硬上传限制；不删除表情包。其他媒体有上游每小时24小时过期规则，实际边界待验收。
-- **表情包**：42张、139条emoji映射，QQ/微信授权私聊共用。唯一编辑表为 `doro/manifest.txt`：`id | 画面 | 适用场景 | 已映射`；多个完整emoji空格分隔，行序即优先级，同类可多对一，不能重复或互为子串。管理脚本只有两个：新图先 `rename-stickers.py --apply` 编号，补表后 `sync-stickers.py --apply` 一次推完（图片→manifest.json→映射，按这个顺序，映射会核 id）；只改映射用 `--only mapping`，只动图用 `--only images`，`--list` 只读核对、默认不带 `--apply` 就是预览。
+- **表情包**：42张、140条emoji映射，QQ/微信授权私聊共用。唯一编辑表为 `doro/manifest.txt`：`id | 画面 | 适用场景 | 已映射`；多个完整emoji空格分隔，行序即优先级，同类可多对一，不能重复或互为子串。管理脚本只有两个：新图先 `rename-stickers.py --apply` 编号，补表后 `sync-stickers.py --apply` 一次推完（图片→manifest.json→映射，按这个顺序，映射会核 id）；只改映射用 `--only mapping`，只动图用 `--only images`，`--list` 只读核对、默认不带 `--apply` 就是预览。
 - `send_sticker(sticker_id)` 只读 `HOME/stickers/manifest.json`，单图1 B–2 MiB，路径无空白；素材目录须在 `gateway.media_delivery_allow_dirs`。自动配图仅短回复（≤3行、≤200字、无代码块），文字后1.2秒补一张，映射侧300秒冷却，与工具共享状态。配置热加载；旧会话工具枚举未更新时才用 `/new`。
 - 保持推理medium、压缩阈值64000 token；表情包场景说明每轮随schema发送，新增时保持简短。关闭聊天进度回执；`display.persona_error_voice=true` 提供人格化故障提示。
 
