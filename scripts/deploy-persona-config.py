@@ -1,4 +1,4 @@
-"""Deploy persona v1.2.6 into the LIVE config (agent.personalities.xiaoyun.system_prompt).
+"""Deploy persona v1.3.0 into the LIVE config (agent.personalities.xiaoyun.system_prompt).
 
 Root cause fixed here: the earlier deploy only wrote /var/lib/hermes/xiaoyun.json, which nothing
 reads. The gateway resolves the persona from config.yaml on every turn, so that file is the target.
@@ -22,7 +22,7 @@ BLOCKS = ("【联网搜索】", "【对话检索】", "【记住对方】")
 
 data = json.load(open(SRC, encoding="utf-8"))
 sp = data["system_prompt"]
-assert data["version"] == "1.2.6", data["version"]
+assert data["version"] == "1.3.0", data["version"]
 for block in BLOCKS:
     assert block in sp, "missing block: " + block
 
