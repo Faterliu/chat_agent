@@ -12,7 +12,7 @@ HOME = Path("/var/lib/hermes/.hermes")
 CONFIG = HOME / "config.yaml"
 ENV = HOME / ".env"
 
-KEY_LINE = "DEEPSEEK_SEARCH_API_KEY=sk-cb429e9e60db45d88fba2096fb279247"
+KEY_LINE = "DEEPSEEK_SEARCH_API_KEY=sk-DEEPSEEK_SEARCH_API_KEY"
 BASE_LINE = "DEEPSEEK_SEARCH_API_BASE=https://api.deepseek.com/v1/tools"
 
 text = CONFIG.read_text(encoding="utf-8")
