@@ -39,6 +39,12 @@ async def note_inbound(source, event, internal=False):
             except OSError:
                 pass
             logger.warning("Social inbound gate unavailable; proactive delivery blocked")
+        # 事件驱动主动关心：只做规则预筛后落库，不调模型、不阻塞本轮回复。
+        try:
+            from gateway.proactive_runtime import intake as _proactive_intake
+            await _proactive_intake(source, event, platform)
+        except Exception:
+            logger.warning("Proactive intake hook unavailable; skipped")
 
 
 BLOCKED = set()

@@ -363,7 +363,7 @@ class SocialStore:
                               "WHERE f.status='pending' AND f.due<=? AND f.expires>? AND u.enabled=1 "
                               "AND f.revision<=u.reviewed AND u.last_inbound<=? "
                               "AND NOT EXISTS(SELECT 1 FROM deliveries d WHERE d.platform=f.platform AND d.user_id=f.user_id "
-                              "AND d.kind='followup' AND d.attempted>?) ORDER BY f.due LIMIT 40",
+                              "AND d.kind IN ('followup','proactive') AND d.attempted>?) ORDER BY f.due LIMIT 40",
                               (self.now, self.now, self.now - 7200, self.now - 2 * DAY)).fetchall()
             for row in rows:
                 if not busy(row["platform"], row["user_id"]):

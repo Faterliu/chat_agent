@@ -1,6 +1,6 @@
 # AGENTS.md
 
-本文件统一记录运行现状、操作约束与微信差距；只维护当前结论，不追加部署流水账。待办见 `documents/TASK.md`，映射参考见 `documents/EMOJI_LIST.md`，实际状态以服务器核验为准。整理日期：2026-10-23，最近运行核验：2026-10-22。
+本文件统一记录运行现状、操作约束与微信差距；只维护当前结论，不追加部署流水账。待办见 `documents/TASK.md`，映射参考见 `documents/EMOJI_LIST.md`，实际状态以服务器核验为准。整理日期：2026-10-27，最近运行核验：2026-10-27。
 
 ## 要求
 1. 本文档新增内容必须为精简后的内容；
@@ -33,6 +33,8 @@
 
 - **人格与搜索**：`source/personas/xiaoyun.json` 是人格源，真正生效的是 `config.yaml` 的 `agent.personalities.xiaoyun.system_prompt`，服务器同名JSON镜像不生效。只用 `scripts/deploy-persona-config.py` 导入，热加载无需重启。保持实时信息先搜索、旧事先检索、称呼/长期偏好及时建档；QQ/微信真实联网问答均已通过。
 - **提醒与关心**：仅本人私聊、平台分别管理。提醒只允许30天内一次性固定文字，每人每平台20条；到点不调用模型。social只存事项摘要，普通关心48小时最多一次、23–08点静默、近期聊天延后，不回应不追发；发送只要求文案至少复核过一次（`f.revision<=reviewed`），新入站不再让旧跟进失效，无更新待办时 reviewed 水位随入站前移；生日须明确订阅，仅存月日。不确定投递记unknown且不自动重发；存储失败写 `social.pause`，人工核查后解除。
+- **事件主动关心（P1，2026-10-24 上线）**：仅私聊。入站先规则预筛（时间词+事件词）写 `social.db` 的 `proactive_intake`，网关维护循环每60秒消费一条，做一次 LLM 抽取后按 `event_key` 去重建 `proactive_tasks` 一次性候选；同键改期更新，终态不复用。状态 PENDING→PROCESSING→SENDING→SENT/FAILED/UNKNOWN，旁路 SKIPPED/EXPIRED/CANCELLED；发送前同一事务写 SENDING+`attempt_count=1`+`deliveries` 台账，提交成功才调 `send_text_once`；崩溃恢复 PROCESSING→SKIPPED、SENDING→UNKNOWN，不补发。与普通关心共用48小时冷却和23–08静默，触发落在静默段顺延08:30。开关 `social.proactive.{enabled,timeout}` 热加载，线上现为 true。
+- **P1 源码镜像**：`source/social/proactive_store.py`、`proactive_runtime.py`、`proactive_brain.py` 对应服务器 `tools/proactive_store.py`、`gateway/proactive_runtime.py`、`gateway/proactive_brain.py`。`gateway/run.py`（`_start_gateway_housekeeping` 内注册 chore 与 stop）、`social_runtime.note_inbound` 钩子、`social_store.claim` 冷却含 `kind='proactive'` 三处只存在服务器工作树，本地不留副本。
 - **视觉与媒体**：辅助视觉走远程API，入站图片生成描述写入历史并参与后续上下文，原图可由 `vision_analyze` 复看。STT关闭，未来只能用远程中文转录，不启本地Whisper。共享入站上限128 MiB，不代表每用户限额。
 - **图片清理**：`HOME/cache/images/` 达50张删最旧20张；每月北京时间首次空闲维护保留最新20张。忙碌或目标图片不足5分钟则延后、每分钟重试，50张是清理触发值而非硬上传限制；不删除表情包。其他媒体有上游每小时24小时过期规则，实际边界待验收。
 - **表情包**：42张、140条emoji映射，QQ/微信授权私聊共用。唯一编辑表为 `doro/manifest.txt`：`id | 画面 | 适用场景 | 已映射`；多个完整emoji空格分隔，行序即优先级，同类可多对一，不能重复或互为子串。管理脚本只有两个：新图先 `rename-stickers.py --apply` 编号，补表后 `sync-stickers.py --apply` 一次推完（图片→manifest.json→映射，按这个顺序，映射会核 id）；只改映射用 `--only mapping`，只动图用 `--only images`，`--list` 只读核对、默认不带 `--apply` 就是预览。
