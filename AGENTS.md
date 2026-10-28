@@ -20,7 +20,7 @@
 
 ## 安全与数据隔离
 
-- **不得运行 `hermes update`、重跑首次部署脚本、覆盖已有修改、启动第二个生产网关或干扰其他业务。**升级/重装须先核对固定提交与服务器工作树上的全部已部署改动（QQ群被动回复、用户隔离、提醒、social、token、媒体）。本地不留补丁副本，历史版本以远程 git 为准。
+- **不得运行 `hermes update`、重跑首次部署脚本、覆盖已有修改、启动第二个生产网关或干扰其他业务。**升级/重装须先核对固定提交与服务器工作树上的全部已部署改动（QQ群被动回复、用户隔离、提醒、social、token、媒体、聊天精简提示词门控）。本地不留补丁副本，历史版本以远程 git 为准。
 - 工具集：CLI仅 `memory/session_search/tts/vision`；QQ与微信同为 `cronjob/memory/search/session_search/social/sticker/tts/vision`。库空时隐藏sticker。
 - 不擅自向模型开放终端、代码执行、任意文件读写、浏览器、MCP、子代理、通用自主Cron、图像生成、ACP或本地模型。检索仅 `web_search`，不开放 `web_extract`。主机定时任务仅用于维护。
 - 白名单扩大前先完成每用户限流及消息/媒体上限验证。密钥只存受限配置/.env，不打印、不入Git或日志；长期记忆不存凭据、验证码、证件或金融信息。
@@ -32,6 +32,7 @@
 ## 已有功能与维护入口
 
 - **人格与搜索**：人格源 `source/personas/xiaoyun.json` 为 v1.4.0（v3.1 提示词）：三段英文字段 `persona_core`/`natural_communication`/`speaking_style`，加运行规则 `operational_rules`（工具、群聊、隐私、提醒文案），不再有 `description`。`scripts/deploy-persona-config.py` 按此顺序拼成单一 `system_prompt`，写入 `config.yaml` 的 `agent.personalities.xiaoyun.system_prompt` 并删除 `description`；服务器同名JSON镜像不生效。ephemeral prompt 每次调用注入、不缓存，热加载无需重启。保持实时信息先搜索、旧事先检索、称呼/长期偏好及时建档；QQ/微信真实联网问答均已通过。
+- **聊天精简提示词（2026-10-28）**：线上 `agent.minimal_prompt: true`，另把 `execution_guidance`、`tool_use_enforcement`、`task_completion_guidance`、`parallel_tool_call_guidance`、`environment_probe` 置 false，并用 `agent.platform_hints.{weixin,qqbot}.replace` 把平台提示压到67/57字（保留 MEDIA 行，否则发图失效）。微信私聊系统消息从约13.8k字降到约6.0k字。`minimal_prompt` 门控在服务器工作树的 `agent/system_prompt.py`（`_minimal_prompt_enabled()` 跳过帮助指引、转向说明、运行环境块，4处调用），改完必须重启网关，源码不热加载；会话上下文、时间锚、记忆块、工具使用总则保留。
 - **提醒与关心**：仅本人私聊、平台分别管理。提醒只允许30天内一次性固定文字，每人每平台20条；到点不调用模型。social只存事项摘要，普通关心48小时最多一次、23–08点静默、近期聊天延后，不回应不追发；发送只要求文案至少复核过一次（`f.revision<=reviewed`），新入站不再让旧跟进失效，无更新待办时 reviewed 水位随入站前移；生日须明确订阅，仅存月日。不确定投递记unknown且不自动重发；存储失败写 `social.pause`，人工核查后解除。
 - **事件主动关心（P1，2026-10-24 上线）**：仅私聊。入站先规则预筛（时间词+事件词）写 `social.db` 的 `proactive_intake`，网关维护循环每60秒消费一条，做一次 LLM 抽取后按 `event_key` 去重建 `proactive_tasks` 一次性候选；同键改期更新，终态不复用。状态 PENDING→PROCESSING→SENDING→SENT/FAILED/UNKNOWN，旁路 SKIPPED/EXPIRED/CANCELLED；发送前同一事务写 SENDING+`attempt_count=1`+`deliveries` 台账，提交成功才调 `send_text_once`；崩溃恢复 PROCESSING→SKIPPED、SENDING→UNKNOWN，不补发。与普通关心共用48小时冷却和23–08静默，触发落在静默段顺延08:30。开关 `social.proactive.{enabled,timeout}` 热加载，线上现为 true。抽取的 `when` 取事件**开始时刻**，触发点=该时刻+2 小时；只给日期时按**当日 18:00**（不推次日），有效期=触发+12 小时。同一件事与普通关心按「±12 小时 + 摘要最长公共子串≥2」判重：命中时普通关心让路（`record` 返回 `deduplicated`、`claim` 跳过该 followup），P1 任务转终态后 followup 可自行补发。
 - **P1 源码镜像**：`source/social/proactive_store.py`、`proactive_runtime.py`、`proactive_brain.py` 对应服务器 `tools/proactive_store.py`、`gateway/proactive_runtime.py`、`gateway/proactive_brain.py`。`gateway/run.py`（`_start_gateway_housekeeping` 内注册 chore 与 stop）、`social_runtime.note_inbound` 钩子、`social_store.claim` 冷却含 `kind='proactive'` 三处只存在服务器工作树，本地不留副本。
