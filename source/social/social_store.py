@@ -13,6 +13,8 @@ import uuid
 
 BJ = timezone(timedelta(hours=8))
 DAY = 86400
+# 同人同事件窗口：事件通道（P1）与普通关心的候选落在这个区间内即视为同一件事。
+PROACTIVE_WINDOW = 12 * 3600
 
 
 @dataclass(frozen=True)
@@ -72,6 +74,25 @@ def due_for(kind, when, now):
         raise ValueError("跟进时间必须在未来 30 天内；服务器北京时间=" + stamp
                          + "。明天可直接传 tomorrow；日期不明确请省略 when 保存候选，不要反复猜日期。")
     return due
+
+
+def _overlap(a, b):
+    """两条摘要的最长公共子串长度；用于确认“是不是同一件事”，避免仅凭时间凑巧相邻。"""
+    a = " ".join(str(a or "").split())
+    b = " ".join(str(b or "").split())
+    if not a or not b:
+        return 0
+    best = 0
+    prev = [0] * (len(b) + 1)
+    for ch in a:
+        cur = [0] * (len(b) + 1)
+        for j, other in enumerate(b, 1):
+            if ch == other:
+                cur[j] = prev[j - 1] + 1
+                if cur[j] > best:
+                    best = cur[j]
+        prev = cur
+    return best
 
 
 class SocialStore:
@@ -199,6 +220,18 @@ class SocialStore:
         return db.execute("SELECT * FROM followups WHERE platform=? AND user_id=? AND status='pending' "
                           "AND expires>? ORDER BY created LIMIT 5", (turn.platform, turn.user_id, self.now)).fetchall()
 
+    def _covered_by_proactive(self, db, platform, user_id, due, summary):
+        """同人、同一事件窗口、且摘要确有重叠时返回 True：事件通道独占，普通关心让路。"""
+        try:
+            rows = db.execute(
+                "SELECT event_summary FROM proactive_tasks WHERE platform=? AND user_id=? "
+                "AND status IN ('PENDING','PROCESSING','SENDING') AND ABS(trigger_at-?)<=?",
+                (platform, user_id, due, PROACTIVE_WINDOW)).fetchall()
+        except sqlite3.OperationalError:
+            # 未部署事件通道时该表不存在，按无冲突处理。
+            return False
+        return any(_overlap(summary, row["event_summary"]) >= 2 for row in rows)
+
     def _reviewed(self, db, turn):
         if all(r["revision"] == turn.revision for r in self._pending(db, turn)):
             db.execute("UPDATE user_settings SET reviewed=? WHERE platform=? AND user_id=? AND revision=?",
@@ -305,6 +338,8 @@ class SocialStore:
                                  (*pair, turn.source_key)).fetchone()
                 if old:
                     return {"id": old[0], "deduplicated": True}
+                if kind == "event" and due and self._covered_by_proactive(db, turn.platform, turn.user_id, due, summary):
+                    return {"deduplicated": True, "tracked_by": "proactive"}
                 if len(self._pending(db, turn)) >= 5:
                     raise ValueError("待跟进事项最多 5 条")
                 if db.execute("SELECT 1 FROM followups WHERE platform=? AND user_id=? AND status='pending' AND summary=?", (*pair, summary)).fetchone():
@@ -366,6 +401,8 @@ class SocialStore:
                               "AND d.kind IN ('followup','proactive') AND d.attempted>?) ORDER BY f.due LIMIT 40",
                               (self.now, self.now, self.now - 7200, self.now - 2 * DAY)).fetchall()
             for row in rows:
+                if row["kind"] == "event" and self._covered_by_proactive(db, row["platform"], row["user_id"], row["due"], row["summary"]):
+                    continue
                 if not busy(row["platform"], row["user_id"]):
                     db.execute("UPDATE followups SET status='attempted',closed=? WHERE id=?", (self.now, row["id"]))
                     return self._delivery(db, row, "followup", [row["id"]], row["text"])

@@ -26,7 +26,9 @@ EXTRACT_SYSTEM = (
     "4. 只输出：{\"action\":\"create|cancel|none\",\"key\":\"事件-日期\",\"summary\":\"不超过30字\","
     "\"when\":\"YYYY-MM-DD 或 YYYY-MM-DDTHH:MM\",\"confident\":true|false}\n"
     "   key 是稳定的中文短标识，例如 面试-2026-10-25；同一件事再次提到必须给出完全相同的 key。\n"
-    "   when 用事件结束时间：知道结束时刻才写 HH:MM（24 小时制），只知日期就写 YYYY-MM-DD。\n"
+    "   when 写事件开始时刻：知道几点开始就写 YYYY-MM-DDTHH:MM（24 小时制），只知道日期就写 YYYY-MM-DD；"
+    "系统会在开始后留缓冲再联系。\n"
+    "   summary 必须保留原话里的日期线索（如“后天下午三点开会”），不要写成“下午三点开会”。\n"
     "5. 任何不确定都输出 action=\"none\"。"
 )
 

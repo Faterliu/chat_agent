@@ -4,7 +4,7 @@
 不新增进程、不新增网关、不调用 Agent（只有一次轻量 chat/completions）。
 """
 import asyncio
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import hashlib
 import logging
 from pathlib import Path
@@ -15,7 +15,7 @@ import time
 from gateway import proactive_brain as brain
 from gateway.social_runtime import BLOCKED, configured, send_text_once
 from tools.proactive_store import BJ, ProactiveStore
-from tools.social_store import due_for, source_key
+from tools.social_store import source_key
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ def _event_time(when, now):
     try:
         when = str(when or "").strip()
         if len(when) == 10:
-            local = datetime.fromisoformat(when).replace(hour=20, tzinfo=BJ)
+            local = datetime.fromisoformat(when).replace(hour=18, tzinfo=BJ)
         elif len(when) >= 16:
             local = datetime.fromisoformat(when[:16]).replace(tzinfo=BJ)
         else:
@@ -86,6 +86,26 @@ def _event_time(when, now):
         return local.timestamp()
     except (ValueError, TypeError):
         return None
+
+
+def _trigger_at(when, now):
+    """事件触发点：有明确时刻就按该时刻 + 2 小时；只有日期按当日 18:00，不推到次日。
+
+    与普通关心的 due_for 分开：那里“只知日期”表示次日晚间跟进，用在事件上会晚一整天。
+    """
+    when = str(when or "").strip()
+    try:
+        if len(when) == 10:
+            day = date.fromisoformat(when)
+            due = datetime(day.year, day.month, day.day, 18, tzinfo=BJ).timestamp()
+        else:
+            point = datetime.fromisoformat(when[:16])
+            due = (point.replace(tzinfo=BJ) if point.tzinfo is None else point).timestamp() + 7200
+    except (ValueError, TypeError):
+        return None
+    if due <= now or due > now + 30 * 86400:
+        return None
+    return due
 
 
 def _session_rows(home, platform, user_id, chat_id):
@@ -201,10 +221,7 @@ class ProactiveRuntime:
             if not removed and result["summary"]:
                 await asyncio.to_thread(store.cancel, row["platform"], row["user_id"], None, result["summary"])
             return True
-        try:
-            trigger = due_for("event", result["when"], now)
-        except (ValueError, TypeError):
-            return True
+        trigger = _trigger_at(result["when"], now)
         if not trigger:
             return True
         trigger = _out_of_quiet(trigger)
