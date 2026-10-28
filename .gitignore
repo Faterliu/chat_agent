@@ -7,3 +7,5 @@
 # Python 字节码缓存：import 时自动生成，删了会自动重建，不要提交
 __pycache__/
 *.pyc
+
+tmp/
